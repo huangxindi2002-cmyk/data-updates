@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>巴西数据处理工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f7f7f5; --bg3: #f0efe9;
+    --text: #1a1a18; --text2: #6b6b66; --text3: #9a9a94;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+    --green: #3B6D11; --green-bg: #EAF3DE; --green-text: #27500A;
+    --amber: #854F0B; --amber-bg: #FAEEDA;
+    --red: #A32D2D; --red-bg: #FCEBEB;
+    --blue: #185FA5; --blue-bg: #E6F1FB;
+    --radius: 8px; --radius-lg: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg2); color: var(--text); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+  .topbar { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 0 2rem; display: flex; align-items: center; gap: 1rem; height: 52px; position: sticky; top: 0; z-index: 100; }
+  .topbar h1 { font-size: 15px; font-weight: 500; }
+  .topbar .sub { font-size: 12px; color: var(--text2); }
+  .topbar .rules-status { margin-left: auto; font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); display: inline-block; }
+  .dot.ok { background: var(--green); }
+  .container { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; display: flex; flex-direction: column; gap: 1.25rem; }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow); }
+  .card-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 8px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--text2); }
+  .field input, .field select { font-size: 13px; padding: 7px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); width: 100%; outline: none; transition: border-color 0.15s; }
+  .field input:focus, .field select:focus { border-color: var(--blue); }
+  .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .upload-zone { border: 0.5px dashed var(--border2); border-radius: var(--radius); padding: 10px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 8px; }
+  .upload-zone:hover { background: var(--bg2); }
+  .upload-zone.has-file { border-color: var(--green); background: var(--green-bg); }
+  .upload-zone input[type=file] { display: none; }
+  .upload-zone .uz-label { font-size: 12px; color: var(--text2); flex: 1; }
+  .upload-zone.has-file .uz-label { color: var(--green-text); }
+  .upload-zone svg { flex-shrink: 0; }
+  .override-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 4px; }
+  .override-item { display: flex; flex-direction: column; gap: 4px; }
+  .override-item label { font-size: 12px; color: var(--text2); }
+  .override-item input { font-size: 13px; padding: 7px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); width: 100%; outline: none; }
+  .override-item input:focus { border-color: var(--blue); }
+  .override-item .note { font-size: 11px; color: var(--text3); }
+  .btn { font-size: 13px; padding: 8px 16px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); cursor: pointer; transition: background 0.15s, opacity 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--bg2); }
+  .btn:active { opacity: 0.8; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; width: 100%; justify-content: center; margin-top: 1rem; padding: 10px; }
+  .btn.primary:hover { opacity: 0.88; background: var(--text); }
+  .btn.sm { font-size: 12px; padding: 5px 10px; }
+  .btn.danger { color: var(--red); border-color: #f09595; }
+  .btn.danger:hover { background: var(--red-bg); }
+  .log { font-size: 12px; font-family: "SF Mono", "Fira Code", monospace; background: var(--bg2); border-radius: var(--radius); padding: 12px; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+  .log .ok { color: var(--green); }
+  .log .warn { color: var(--amber); }
+  .log .err { color: var(--red); }
+  .log .info { color: var(--text2); }
+  .tabs { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 1.25rem; gap: 0; }
+  .tab { font-size: 13px; padding: 7px 16px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color 0.15s; user-select: none; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); font-weight: 500; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .stat { background: var(--bg2); border-radius: var(--radius); padding: 12px 14px; }
+  .stat .val { font-size: 22px; font-weight: 500; }
+  .stat .lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; font-weight: 500; color: var(--text2); padding: 6px 8px; border-bottom: 0.5px solid var(--border); white-space: nowrap; }
+  td { padding: 5px 8px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .cat-row td { background: var(--bg2); font-weight: 500; font-size: 12px; color: var(--text2); padding: 5px 8px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .indent { padding-left: 20px !important; }
+  .muted { color: var(--text2); }
+  .unknown-list { display: flex; flex-direction: column; gap: 5px; }
+  .unknown-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--bg2); border-radius: var(--radius); }
+  .unknown-item .name { flex: 1; font-size: 13px; }
+  .unknown-item .time { font-size: 12px; color: var(--text2); min-width: 80px; text-align: right; }
+  .unknown-item select { font-size: 12px; padding: 3px 8px; border: 0.5px solid var(--border2); border-radius: 6px; background: var(--bg); color: var(--text); }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .badge.warn { background: var(--amber-bg); color: var(--amber); }
+  .badge.ok { background: var(--green-bg); color: var(--green-text); }
+  .dl-row { display: flex; gap: 10px; margin-top: 1rem; }
+  .dl-row .btn { flex: 1; justify-content: center; }
+  .add-rule-row { display: flex; gap: 8px; margin-top: 1rem; align-items: center; }
+  .add-rule-row input { flex: 2; font-size: 12px; padding: 6px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); outline: none; }
+  .add-rule-row input:focus { border-color: var(--blue); }
+  .add-rule-row select { flex: 1; font-size: 12px; padding: 6px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); }
+  .rules-note { font-size: 11px; color: var(--text3); margin-top: 10px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.5; }
+  .rules-note a { color: var(--blue); text-decoration: none; }
+  .rules-note a:hover { text-decoration: underline; }
+  .section-sep { height: 0.5px; background: var(--border); margin: 1rem 0; }
+  .hidden { display: none !important; }
+  @media (max-width: 600px) {
+    .row2, .upload-grid, .override-grid, .stat-grid { grid-template-columns: 1fr; }
+    .container { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>巴西数据处理工具</h1>
+  <span class="sub">data.ai → Excel 底稿</span>
+  <div class="rules-status">
+    <span class="dot" id="rules-dot"></span>
+    <span id="rules-status-text">加载规则库中...</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Step 1: Upload -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      上传数据文件
+    </div>
+
+    <div class="row2" style="margin-bottom:1rem">
+      <div class="field">
+        <label>月份</label>
+        <input type="month" id="month-input" value="">
+      </div>
+      <div class="field">
+        <label>Overall CSV <span style="color:var(--red)">*</span></label>
+        <div class="upload-zone" id="uz-overall" onclick="document.getElementById('f-overall').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span class="uz-label" id="uz-overall-label">选择 data.ai Overall CSV</span>
+          <input type="file" id="f-overall" accept=".csv" onchange="handleFile('overall',this)">
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">分类别 CSV（可选，上传后合计数字更准确）</div>
+    <div class="upload-grid" id="cat-upload-grid"></div>
+
+    <div class="section-sep"></div>
+
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">手动覆盖时长（十亿分钟）</div>
+    <div class="override-grid">
+      <div class="override-item">
+        <label>TikTok</label>
+        <input type="number" id="tiktok-val" placeholder="如 175.887" step="0.001">
+        <span class="note">来自竞对监控，留空则用 data.ai 原始值</span>
+      </div>
+      <div class="override-item">
+        <label>Kwai</label>
+        <input type="number" id="kwai-val" placeholder="如 68.967" step="0.001">
+        <span class="note">来自内部看板，留空则用 data.ai 原始值</span>
+      </div>
+    </div>
+
+    <button class="btn primary" id="run-btn" onclick="runPipeline()" disabled>开始处理</button>
+  </div>
+
+  <!-- Log -->
+  <div class="card hidden" id="log-card">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      处理日志
+    </div>
+    <div class="log" id="log-box"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="card hidden" id="results-card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('data')">数据预览</div>
+      <div class="tab" onclick="switchTab('unknown')">未知 App <span id="unknown-badge"></span></div>
+      <div class="tab" onclick="switchTab('rules')">分类规则库</div>
+    </div>
+
+    <!-- Data tab -->
+    <div class="tab-panel active" id="tab-data">
+      <div class="stat-grid">
+        <div class="stat"><div class="val" id="s-total">—</div><div class="lbl">月总时长（十亿分钟）</div></div>
+        <div class="stat"><div class="val" id="s-kwai-rank">—</div><div class="lbl">Kwai 全局排名</div></div>
+        <div class="stat"><div class="val" id="s-unknown">—</div><div class="lbl">未分类 App 数</div></div>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="results-table">
+          <thead><tr><th>App</th><th class="num">时长（十亿分钟）</th><th class="num">全局占比</th></tr></thead>
+          <tbody id="results-tbody"></tbody>
+        </table>
+      </div>
+      <div class="dl-row">
+        <button class="btn" onclick="downloadExcel()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          下载 Excel 底稿
+        </button>
+        <button class="btn" onclick="downloadCSV()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          下载 CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Unknown tab -->
+    <div class="tab-panel" id="tab-unknown">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">
+        以下 App 不在规则库中，请指定分类后点"保存到规则库"。保存后需重新提交到 GitHub 才能永久生效。
+      </p>
+      <div class="unknown-list" id="unknown-list"></div>
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+        <button class="btn sm" onclick="saveUnknownRules()">保存选中分类到规则库</button>
+        <button class="btn sm" onclick="downloadRulesJSON()">导出规则库 JSON</button>
+      </div>
+      <div class="rules-note" style="margin-top:10px">
+        保存后请将下载的 <code>classification_rules.json</code> 提交到 GitHub 仓库根目录，下次打开工具时自动生效。
+      </div>
+    </div>
+
+    <!-- Rules tab -->
+    <div class="tab-panel" id="tab-rules">
+      <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
+        <table id="rules-table-el">
+          <thead><tr><th>App 名称</th><th>分类</th><th></th></tr></thead>
+          <tbody id="rules-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-rule-row">
+        <input type="text" id="new-app-name" placeholder="App 名称（同 data.ai 显示名）">
+        <select id="new-app-cat"></select>
+        <button class="btn sm" onclick="addRule()">添加</button>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <button class="btn sm" onclick="downloadRulesJSON()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          导出规则库 JSON
+        </button>
+      </div>
+      <div class="rules-note">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        修改后点"导出规则库 JSON"，将下载的文件提交到 GitHub 仓库根目录，替换原有文件。下次打开工具时自动从 GitHub 加载最新规则。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CATEGORIES = ["社交","泛短视频","直播","长视频","社区","新闻资讯","在线阅读","浏览器/搜索","音乐/音频","游戏","电商","生活服务"];
+
+let rules = {};
+let filesLoaded = {};
+let processedData = null;
+
+const REPO_RULES_URL = (() => {
+  const parts = location.pathname.replace(/\/+$/,'').split('/');
+  const repo = parts.length >= 2 ? parts.slice(1,3).join('/') : '';
+  if (location.hostname.includes('github.io') && repo) {
+    return `https://raw.githubusercontent.com/${location.hostname.replace('.github.io','')}/${parts[1]}/main/classification_rules.json`;
+  }
+  return './classification_rules.json';
+})();
+
+const DEFAULT_RULES = {"WhatsApp Messenger":"社交","WhatsApp Business":"社交","Facebook":"社交","X":"社交","Telegram":"社交","Discord":"社交","Instagram":"泛短视频","TikTok":"泛短视频","Kwai":"泛短视频","CapCut":"泛短视频","Likee":"泛短视频","Twitch":"直播","BIGO LIVE":"直播","Pluto.tv":"直播","Hago":"直播","YouTube":"长视频","Netflix":"长视频","Globo Play":"长视频","Amazon Prime Video":"长视频","disney+":"长视频","Disney+":"长视频","Waze":"社区","waze":"社区","Pinterest":"社区","Reddit":"社区","Quora":"社区","Helo - Share Your Life":"社区","Google News":"新闻资讯","G1":"新闻资讯","UOL | Notícias em Tempo Real":"新闻资讯","Opera News":"新闻资讯","Folha de S.Paulo":"新闻资讯","Wattpad":"在线阅读","Kindle":"在线阅读","JW Library":"在线阅读","ReadEra by READERA LLC":"在线阅读","Bible":"在线阅读","Chrome Browser":"浏览器/搜索","Google":"浏览器/搜索","Brave Browser: Fast AdBlocker":"浏览器/搜索","Samsung Internet Browser":"浏览器/搜索","Opera Browser":"浏览器/搜索","Spotify":"音乐/音频","YouTube Music":"音乐/音频","Lark Player":"音乐/音频","Freecine":"音乐/音频","Mi Music":"音乐/音频","ROBLOX":"游戏","Free Fire":"游戏","Brawl Stars":"游戏","Minecraft Pocket Edition":"游戏","Clash Royale":"游戏","eFootball 2024":"游戏","Mobile Legends: Bang Bang":"游戏","Shopee":"电商","MercadoLibre":"电商","SHEIN":"电商","AliExpress":"电商","Temu":"电商","Uber":"生活服务","iFood Delivery de Comida":"生活服务","99Taxis":"生活服务","Booking.com":"生活服务","Lalamove Driver":"生活服务"};
+
+async function loadRules() {
+  try {
+    const res = await fetch(REPO_RULES_URL + '?t=' + Date.now());
+    if (res.ok) {
+      const remote = await res.json();
+      rules = {...DEFAULT_RULES, ...remote};
+      setRulesStatus(true, '规则库已加载（' + Object.keys(rules).length + ' 条）');
+    } else { throw new Error('fetch failed'); }
+  } catch(e) {
+    rules = {...DEFAULT_RULES};
+    setRulesStatus(false, '使用内置规则库（' + Object.keys(rules).length + ' 条）');
+  }
+  renderRulesTable();
+  buildCatSelects();
+}
+
+function setRulesStatus(ok, msg) {
+  document.getElementById('rules-dot').className = 'dot' + (ok ? ' ok' : '');
+  document.getElementById('rules-status-text').textContent = msg;
+}
+
+function buildCatUploads() {
+  const cats = [
+    {key:'social',label:'社交 (Social)'},{key:'video',label:'视频 (Photo & Video)'},
+    {key:'news',label:'新闻 (News)'},{key:'books',label:'阅读 (Books)'},
+    {key:'music',label:'音乐 (Music)'},{key:'games',label:'游戏 (Games)'},
+    {key:'shopping',label:'电商 (Shopping)'}
+  ];
+  const grid = document.getElementById('cat-upload-grid');
+  grid.innerHTML = cats.map(c => `
+    <div class="upload-zone" id="uz-${c.key}" onclick="document.getElementById('f-${c.key}').click()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span class="uz-label" id="uz-${c.key}-label">${c.label}</span>
+      <input type="file" id="f-${c.key}" accept=".csv" onchange="handleFile('${c.key}',this)">
+    </div>`).join('');
+}
+
+function buildCatSelects() {
+  ['new-app-cat'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+  });
+}
+
+function handleFile(key, input) {
+  if (!input.files[0]) return;
+  filesLoaded[key] = input.files[0];
+  const label = document.getElementById(`uz-${key}-label`);
+  const zone = document.getElementById(`uz-${key}`);
+  if (label) label.textContent = input.files[0].name;
+  if (zone) zone.classList.add('has-file');
+  if (key === 'overall') {
+    document.getElementById('uz-overall-label').textContent = input.files[0].name;
+    document.getElementById('uz-overall').classList.add('has-file');
+    document.getElementById('run-btn').disabled = false;
+  }
+}
+
+function parseCSVFile(file) {
+  return new Promise((res, rej) => {
+    Papa.parse(file, { skipEmptyLines: true, complete: r => res(r.data), error: e => rej(e) });
+  });
+}
+
+function findHeaderRow(rows) {
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].some(c => c.includes('Unified App Name') || c === 'Total Time')) return i;
+  }
+  return -1;
+}
+
+async function parseOverall(file) {
+  const rows = await parseCSVFile(file);
+  const hi = findHeaderRow(rows);
+  if (hi < 0) throw new Error('找不到标题行，请确认是 data.ai Overall CSV');
+  const h = rows[hi];
+  const nameIdx = h.findIndex(c => c.includes('Unified App Name'));
+  const timeIdx = h.findIndex(c => c === 'Total Time');
+  const rankIdx = h.findIndex(c => c === 'Total Time Rank' && !c.includes('Change'));
+  const data = [];
+  for (let i = hi + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = r[nameIdx]?.trim();
+    const t = parseFloat(r[timeIdx]);
+    const rank = parseInt(r[rankIdx]) || 999;
+    if (name && !isNaN(t) && t > 0) data.push({ name, time: t / 1e9, rank });
+  }
+  return data;
+}
+
+async function parseCatFile(file, catKey) {
+  const catMap = { social:'社交', video:'泛短视频', news:'新闻资讯', books:'在线阅读', music:'音乐/音频', games:'游戏', shopping:'电商' };
+  const rows = await parseCSVFile(file);
+  const hi = findHeaderRow(rows);
+  if (hi < 0) return { cat: catMap[catKey], data: {} };
+  const h = rows[hi];
+  const nameIdx = h.findIndex(c => c.includes('Unified App Name'));
+  const timeIdx = h.findIndex(c => c === 'Total Time');
+  const result = {};
+  for (let i = hi + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = r[nameIdx]?.trim();
+    const t = parseFloat(r[timeIdx]);
+    if (name && !isNaN(t)) result[name] = t / 1e9;
+  }
+  return { cat: catMap[catKey], data: result };
+}
+
+function log(msg, type = 'info') {
+  const box = document.getElementById('log-box');
+  const el = document.createElement('div');
+  el.className = type;
+  const prefix = type === 'ok' ? '✓ ' : type === 'warn' ? '⚠ ' : type === 'err' ? '✗ ' : '  ';
+  el.textContent = prefix + msg;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function runPipeline() {
+  document.getElementById('log-card').classList.remove('hidden');
+  document.getElementById('results-card').classList.add('hidden');
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('run-btn').disabled = true;
+  const month = document.getElementById('month-input').value || '未知月份';
+
+  try {
+    log('读取 Overall CSV...');
+    let overall = await parseOverall(filesLoaded['overall']);
+    log('读取 ' + overall.length + ' 条记录', 'ok');
+
+    log('合并 WhatsApp Messenger + WhatsApp Business...');
+    const waMsg = overall.find(r => r.name === 'WhatsApp Messenger');
+    const waBiz = overall.find(r => r.name === 'WhatsApp Business');
+    if (waMsg && waBiz) {
+      waMsg.name = 'WhatsApp Messenger & WhatsApp Business';
+      waMsg.time += waBiz.time;
+      overall = overall.filter(r => r.name !== 'WhatsApp Business');
+      log('合并后时长：' + waMsg.time.toFixed(3) + ' 十亿分钟', 'ok');
+    } else {
+      log('未找到 WhatsApp Business，跳过合并', 'warn');
+    }
+
+    const tiktokVal = parseFloat(document.getElementById('tiktok-val').value);
+    const kwaiVal = parseFloat(document.getElementById('kwai-val').value);
+    if (!isNaN(tiktokVal)) {
+      const t = overall.find(r => r.name === 'TikTok');
+      if (t) { t.time = tiktokVal; log('TikTok 手动覆盖：' + tiktokVal.toFixed(3), 'ok'); }
+    } else { log('TikTok 未覆盖，使用 data.ai 原始值', 'warn'); }
+    if (!isNaN(kwaiVal)) {
+      const k = overall.find(r => r.name === 'Kwai');
+      if (k) { k.time = kwaiVal; log('Kwai 手动覆盖：' + kwaiVal.toFixed(3), 'ok'); }
+    } else { log('Kwai 未覆盖，使用 data.ai 原始值', 'warn'); }
+
+    const catData = {};
+    const catKeys = ['social','video','news','books','music','games','shopping'];
+    for (const k of catKeys) {
+      if (filesLoaded[k]) {
+        const res = await parseCatFile(filesLoaded[k], k);
+        catData[res.cat] = res.data;
+        log('分类 CSV 已加载：' + k + '（' + Object.keys(res.data).length + ' 条）', 'ok');
+      }
+    }
+    const hasCatData = Object.keys(catData).length > 0;
+    if (!hasCatData) log('未上传分类别 CSV，合计使用统一时长近似（略有偏差）', 'warn');
+
+    log('应用分类规则...');
+    const catGroups = {};
+    CATEGORIES.forEach(c => catGroups[c] = []);
+    const unknown = [];
+
+    for (const item of overall) {
+      const cat = rules[item.name];
+      if (cat && catGroups[cat]) {
+        catGroups[cat].push(item);
+      } else if (!cat && item.time > 0.05) {
+        unknown.push(item);
+      }
+    }
+    if (unknown.length) log('发现 ' + unknown.length + ' 个未分类 App（时长 > 0.05 十亿分钟）', 'warn');
+
+    log('计算各分类 Top5 和合计...');
+    const result = {};
+    let grandTotal = 0;
+
+    for (const cat of CATEGORIES) {
+      const items = catGroups[cat].sort((a, b) => b.time - a.time);
+      const top5 = items.slice(0, 5);
+      let catTotal;
+
+      if (hasCatData && catData[cat]) {
+        const appTimes = catData[cat];
+        let rawTotal = Object.values(appTimes).reduce((s, v) => s + v, 0);
+        for (const item of overall) {
+          const itemCat = rules[item.name];
+          if (itemCat !== cat && appTimes[item.name] !== undefined) {
+            rawTotal -= appTimes[item.name];
+            rawTotal += item.time;
+          }
+        }
+        catTotal = Math.max(rawTotal, top5.reduce((s, i) => s + i.time, 0));
+      } else {
+        catTotal = items.reduce((s, i) => s + i.time, 0);
+      }
+
+      const othersTime = Math.max(0, catTotal - top5.reduce((s, i) => s + i.time, 0));
+      result[cat] = { total: catTotal, top5, others: othersTime };
+      grandTotal += catTotal;
+    }
+
+    const kwaiItem = overall.find(r => r.name === 'Kwai');
+    const kwaiRank = kwaiItem ? kwaiItem.rank : '—';
+
+    log('完成，月总时长：' + grandTotal.toFixed(1) + ' 十亿分钟', 'ok');
+    processedData = { result, unknown, grandTotal, month, kwaiRank };
+    renderResults(processedData);
+    document.getElementById('results-card').classList.remove('hidden');
+
+  } catch (e) {
+    log('错误：' + e.message, 'err');
+  }
+  document.getElementById('run-btn').disabled = false;
+}
+
+function renderResults({ result, unknown, grandTotal, month, kwaiRank }) {
+  document.getElementById('s-total').textContent = grandTotal.toFixed(0);
+  document.getElementById('s-kwai-rank').textContent = 'No.' + kwaiRank;
+  document.getElementById('s-unknown').textContent = unknown.length;
+  document.getElementById('unknown-badge').textContent = unknown.length > 0 ? '(' + unknown.length + ')' : '';
+
+  const tbody = document.getElementById('results-tbody');
+  let html = '';
+  for (const cat of CATEGORIES) {
+    const { total, top5, others } = result[cat];
+    const pct = grandTotal > 0 ? (total / grandTotal * 100).toFixed(1) : '0.0';
+    html += `<tr class="cat-row"><td>${cat}</td><td class="num">${total.toFixed(2)}</td><td class="num">${pct}%</td></tr>`;
+    for (const item of top5) {
+      html += `<tr><td class="indent">${item.name}</td><td class="num">${item.time.toFixed(2)}</td><td class="num">${(item.time / grandTotal * 100).toFixed(1)}%</td></tr>`;
+    }
+    if (others > 0.01) {
+      html += `<tr><td class="indent muted">其他</td><td class="num muted">${others.toFixed(2)}</td><td></td></tr>`;
+    }
+  }
+  tbody.innerHTML = html;
+
+  const ul = document.getElementById('unknown-list');
+  if (unknown.length === 0) {
+    ul.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:8px 0">所有 App 均已分类</div>';
+  } else {
+    const opts = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+    ul.innerHTML = unknown.slice(0, 60).map(item => `
+      <div class="unknown-item">
+        <span class="name">${item.name}</span>
+        <span class="time">${item.time.toFixed(2)} 十亿分钟</span>
+        <select data-app="${item.name.replace(/"/g,'&quot;')}">
+          <option value="">— 选择分类 —</option>
+          ${opts}
+        </select>
+      </div>`).join('');
+  }
+
+  renderRulesTable();
+}
+
+function renderRulesTable() {
+  const tbody = document.getElementById('rules-tbody');
+  const entries = Object.entries(rules).sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]));
+  tbody.innerHTML = entries.map(([app, cat]) =>
+    `<tr><td>${app}</td><td>${cat}</td><td><button class="btn sm danger" onclick="deleteRule(this)" data-app="${app.replace(/"/g,'&quot;')}">删除</button></td></tr>`
+  ).join('');
+}
+
+function deleteRule(btn) {
+  const app = btn.dataset.app;
+  delete rules[app];
+  renderRulesTable();
+}
+
+function addRule() {
+  const name = document.getElementById('new-app-name').value.trim();
+  const cat = document.getElementById('new-app-cat').value;
+  if (!name || !cat) return;
+  rules[name] = cat;
+  document.getElementById('new-app-name').value = '';
+  renderRulesTable();
+}
+
+function saveUnknownRules() {
+  const sels = document.querySelectorAll('#unknown-list select');
+  let added = 0;
+  sels.forEach(sel => {
+    const app = sel.dataset.app;
+    const cat = sel.value;
+    if (cat) { rules[app] = cat; added++; }
+  });
+  if (added > 0) {
+    renderRulesTable();
+    downloadRulesJSON();
+    alert(`已为 ${added} 个 App 设置分类。\n规则库 JSON 已下载，请提交到 GitHub 仓库根目录以永久保存。`);
+  } else {
+    alert('请先为 App 选择分类');
+  }
+}
+
+function downloadRulesJSON() {
+  const blob = new Blob([JSON.stringify(rules, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'classification_rules.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadCSV() {
+  if (!processedData) return;
+  const { result, grandTotal, month } = processedData;
+  let csv = '月份,分类,App,时长（十亿分钟）,全局占比\n';
+  for (const cat of CATEGORIES) {
+    const { total, top5, others } = result[cat];
+    csv += `${month},${cat},合计,${total.toFixed(3)},${(total / grandTotal * 100).toFixed(2)}%\n`;
+    for (const item of top5) {
+      csv += `${month},${cat},"${item.name}",${item.time.toFixed(3)},${(item.time / grandTotal * 100).toFixed(2)}%\n`;
+    }
+    if (others > 0.01) csv += `${month},${cat},其他,${others.toFixed(3)},\n`;
+  }
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `巴西数据底稿_${month}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadExcel() {
+  if (!processedData) return;
+  const { result, grandTotal, month, unknown } = processedData;
+  const wb = XLSX.utils.book_new();
+
+  const header = ['', ...CATEGORIES];
+  const totals = ['合计（十亿分钟）', ...CATEGORIES.map(c => +result[c].total.toFixed(3))];
+  const pcts = ['合计占比', ...CATEGORIES.map(c => +((result[c].total / grandTotal * 100).toFixed(2)))];
+  const rows = [header, totals, pcts];
+
+  const maxRows = Math.max(...CATEGORIES.map(c => result[c].top5.length));
+  for (let i = 0; i < maxRows; i++) {
+    const row = ['Top' + (i + 1)];
+    for (const cat of CATEGORIES) {
+      const item = result[cat].top5[i];
+      row.push(item ? item.name : '');
+    }
+    rows.push(row);
+    const timeRow = [''];
+    for (const cat of CATEGORIES) {
+      const item = result[cat].top5[i];
+      timeRow.push(item ? +item.time.toFixed(3) : '');
+    }
+    rows.push(timeRow);
+  }
+
+  const othersRow = ['其他', ...CATEGORIES.map(c => +result[c].others.toFixed(3))];
+  rows.push(othersRow);
+  rows.push([]);
+  rows.push(['月份', month]);
+  rows.push(['月总时长（十亿分钟）', +grandTotal.toFixed(2)]);
+  rows.push(['生成时间', new Date().toLocaleString('zh-CN')]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 16 }, ...CATEGORIES.map(() => ({ wch: 16 }))];
+  XLSX.utils.book_append_sheet(wb, ws, month.replace(/-/g, '_'));
+
+  if (unknown && unknown.length > 0) {
+    const unknownRows = [['未分类 App', '时长（十亿分钟）']];
+    for (const item of unknown) unknownRows.push([item.name, +item.time.toFixed(3)]);
+    const ws2 = XLSX.utils.aoa_to_sheet(unknownRows);
+    ws2['!cols'] = [{ wch: 50 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, ws2, '未分类App');
+  }
+
+  XLSX.writeFile(wb, `巴西数据底稿_${month}.xlsx`);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['data', 'unknown', 'rules'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+document.getElementById('month-input').value = new Date().toISOString().slice(0, 7);
+buildCatUploads();
+loadRules();
+</script>
+</body>
+</html>
