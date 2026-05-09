@@ -7,109 +7,99 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #ffffff; --bg2: #f7f7f5; --bg3: #f0efe9;
-    --text: #1a1a18; --text2: #6b6b66; --text3: #9a9a94;
-    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
-    --green: #3B6D11; --green-bg: #EAF3DE; --green-text: #27500A;
-    --amber: #854F0B; --amber-bg: #FAEEDA;
-    --red: #A32D2D; --red-bg: #FCEBEB;
-    --blue: #185FA5; --blue-bg: #E6F1FB;
-    --radius: 8px; --radius-lg: 12px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg2); color: var(--text); font-size: 14px; line-height: 1.6; min-height: 100vh; }
-  .topbar { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 0 2rem; display: flex; align-items: center; gap: 1rem; height: 52px; position: sticky; top: 0; z-index: 100; }
-  .topbar h1 { font-size: 15px; font-weight: 500; }
-  .topbar .sub { font-size: 12px; color: var(--text2); }
-  .topbar .rules-status { margin-left: auto; font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 6px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); display: inline-block; }
-  .dot.ok { background: var(--green); }
-  .container { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; display: flex; flex-direction: column; gap: 1.25rem; }
-  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow); }
-  .card-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 8px; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .field { display: flex; flex-direction: column; gap: 5px; }
-  .field label { font-size: 12px; color: var(--text2); }
-  .field input, .field select { font-size: 13px; padding: 7px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); width: 100%; outline: none; transition: border-color 0.15s; }
-  .field input:focus, .field select:focus { border-color: var(--blue); }
-  .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .upload-zone { border: 0.5px dashed var(--border2); border-radius: var(--radius); padding: 10px 12px; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 8px; }
-  .upload-zone:hover { background: var(--bg2); }
-  .upload-zone.has-file { border-color: var(--green); background: var(--green-bg); }
-  .upload-zone input[type=file] { display: none; }
-  .upload-zone .uz-label { font-size: 12px; color: var(--text2); flex: 1; }
-  .upload-zone.has-file .uz-label { color: var(--green-text); }
-  .upload-zone svg { flex-shrink: 0; }
-  .override-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 4px; }
-  .override-item { display: flex; flex-direction: column; gap: 4px; }
-  .override-item label { font-size: 12px; color: var(--text2); }
-  .override-item input { font-size: 13px; padding: 7px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); width: 100%; outline: none; }
-  .override-item input:focus { border-color: var(--blue); }
-  .override-item .note { font-size: 11px; color: var(--text3); }
-  .btn { font-size: 13px; padding: 8px 16px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); cursor: pointer; transition: background 0.15s, opacity 0.15s; display: inline-flex; align-items: center; gap: 6px; }
-  .btn:hover { background: var(--bg2); }
-  .btn:active { opacity: 0.8; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; width: 100%; justify-content: center; margin-top: 1rem; padding: 10px; }
-  .btn.primary:hover { opacity: 0.88; background: var(--text); }
-  .btn.sm { font-size: 12px; padding: 5px 10px; }
-  .btn.danger { color: var(--red); border-color: #f09595; }
-  .btn.danger:hover { background: var(--red-bg); }
-  .log { font-size: 12px; font-family: "SF Mono", "Fira Code", monospace; background: var(--bg2); border-radius: var(--radius); padding: 12px; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
-  .log .ok { color: var(--green); }
-  .log .warn { color: var(--amber); }
-  .log .err { color: var(--red); }
-  .log .info { color: var(--text2); }
-  .tabs { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 1.25rem; gap: 0; }
-  .tab { font-size: 13px; padding: 7px 16px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color 0.15s; user-select: none; }
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--text); border-bottom-color: var(--text); font-weight: 500; }
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
-  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; }
-  .stat { background: var(--bg2); border-radius: var(--radius); padding: 12px 14px; }
-  .stat .val { font-size: 22px; font-weight: 500; }
-  .stat .lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; font-size: 11px; font-weight: 500; color: var(--text2); padding: 6px 8px; border-bottom: 0.5px solid var(--border); white-space: nowrap; }
-  td { padding: 5px 8px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  .cat-row td { background: var(--bg2); font-weight: 500; font-size: 12px; color: var(--text2); padding: 5px 8px; }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .indent { padding-left: 20px !important; }
-  .muted { color: var(--text2); }
-  .unknown-list { display: flex; flex-direction: column; gap: 5px; }
-  .unknown-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--bg2); border-radius: var(--radius); }
-  .unknown-item .name { flex: 1; font-size: 13px; }
-  .unknown-item .time { font-size: 12px; color: var(--text2); min-width: 80px; text-align: right; }
-  .unknown-item select { font-size: 12px; padding: 3px 8px; border: 0.5px solid var(--border2); border-radius: 6px; background: var(--bg); color: var(--text); }
-  .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
-  .badge.warn { background: var(--amber-bg); color: var(--amber); }
-  .badge.ok { background: var(--green-bg); color: var(--green-text); }
-  .dl-row { display: flex; gap: 10px; margin-top: 1rem; }
-  .dl-row .btn { flex: 1; justify-content: center; }
-  .add-rule-row { display: flex; gap: 8px; margin-top: 1rem; align-items: center; }
-  .add-rule-row input { flex: 2; font-size: 12px; padding: 6px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); outline: none; }
-  .add-rule-row input:focus { border-color: var(--blue); }
-  .add-rule-row select { flex: 1; font-size: 12px; padding: 6px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: var(--bg); color: var(--text); }
-  .rules-note { font-size: 11px; color: var(--text3); margin-top: 10px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.5; }
-  .rules-note a { color: var(--blue); text-decoration: none; }
-  .rules-note a:hover { text-decoration: underline; }
-  .section-sep { height: 0.5px; background: var(--border); margin: 1rem 0; }
-  .hidden { display: none !important; }
-  @media (max-width: 600px) {
-    .row2, .upload-grid, .override-grid, .stat-grid { grid-template-columns: 1fr; }
-    .container { padding: 1rem; }
-  }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f7f7f5;--bg3:#f0efe9;
+  --text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);
+  --green:#3B6D11;--green-bg:#EAF3DE;--green-text:#27500A;
+  --amber:#854F0B;--amber-bg:#FAEEDA;
+  --red:#A32D2D;--red-bg:#FCEBEB;
+  --blue:#185FA5;--blue-bg:#E6F1FB;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg2);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+.topbar{background:var(--bg);border-bottom:0.5px solid var(--border);padding:0 2rem;display:flex;align-items:center;gap:1rem;height:52px;position:sticky;top:0;z-index:100}
+.topbar h1{font-size:15px;font-weight:500}
+.topbar .sub{font-size:12px;color:var(--text2)}
+.topbar .rules-status{margin-left:auto;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--text3);display:inline-block}
+.dot.ok{background:var(--green)}
+.container{max-width:900px;margin:0 auto;padding:1.5rem 1.5rem 4rem;display:flex;flex-direction:column;gap:1.25rem}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:500;color:var(--text2);margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.04em;display:flex;align-items:center;gap:8px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--text2)}
+.field input,.field select{font-size:13px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);width:100%;outline:none;transition:border-color 0.15s}
+.field input:focus,.field select:focus{border-color:var(--blue)}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.upload-zone{border:0.5px dashed var(--border2);border-radius:var(--radius);padding:10px 12px;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;gap:8px}
+.upload-zone:hover{background:var(--bg2)}
+.upload-zone.has-file{border-color:var(--green);background:var(--green-bg)}
+.upload-zone input[type=file]{display:none}
+.upload-zone .uz-label{font-size:12px;color:var(--text2);flex:1}
+.upload-zone.has-file .uz-label{color:var(--green-text)}
+.override-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:4px}
+.override-item{display:flex;flex-direction:column;gap:4px}
+.override-item label{font-size:12px;color:var(--text2)}
+.override-item input{font-size:13px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);width:100%;outline:none}
+.override-item input:focus{border-color:var(--blue)}
+.override-item .note{font-size:11px;color:var(--text3)}
+.btn{font-size:13px;padding:8px 16px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg);color:var(--text);cursor:pointer;transition:background 0.15s,opacity 0.15s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--bg2)}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.btn.primary{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:500;width:100%;justify-content:center;margin-top:1rem;padding:10px}
+.btn.primary:hover{opacity:0.88;background:var(--text)}
+.btn.sm{font-size:12px;padding:5px 10px}
+.btn.danger{color:var(--red);border-color:#f09595}
+.btn.danger:hover{background:var(--red-bg)}
+.log{font-size:12px;font-family:"SF Mono","Fira Code",monospace;background:var(--bg2);border-radius:var(--radius);padding:12px;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.log .ok{color:var(--green)}
+.log .warn{color:var(--amber)}
+.log .err{color:var(--red)}
+.log .info{color:var(--text2)}
+.tabs{display:flex;border-bottom:0.5px solid var(--border);margin-bottom:1.25rem;gap:0}
+.tab{font-size:13px;padding:7px 16px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-0.5px;transition:color 0.15s;user-select:none}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--text);border-bottom-color:var(--text);font-weight:500}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem}
+.stat{background:var(--bg2);border-radius:var(--radius);padding:12px 14px}
+.stat .val{font-size:22px;font-weight:500}
+.stat .lbl{font-size:11px;color:var(--text2);margin-top:2px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:500;color:var(--text2);padding:6px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap}
+td{padding:5px 8px;border-bottom:0.5px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.cat-row td{background:var(--bg2);font-weight:500;font-size:12px;color:var(--text2);padding:5px 8px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.indent{padding-left:20px!important}
+.muted{color:var(--text2)}
+.unknown-list{display:flex;flex-direction:column;gap:5px}
+.unknown-item{display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg2);border-radius:var(--radius)}
+.unknown-item .name{flex:1;font-size:13px}
+.unknown-item .time{font-size:12px;color:var(--text2);min-width:80px;text-align:right}
+.unknown-item select{font-size:12px;padding:3px 8px;border:0.5px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text)}
+.dl-row{display:flex;gap:10px;margin-top:1rem}
+.dl-row .btn{flex:1;justify-content:center}
+.add-rule-row{display:flex;gap:8px;margin-top:1rem;align-items:center}
+.add-rule-row input{flex:2;font-size:12px;padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none}
+.add-rule-row input:focus{border-color:var(--blue)}
+.add-rule-row select{flex:1;font-size:12px;padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text)}
+.rules-note{font-size:11px;color:var(--text3);margin-top:10px;display:flex;align-items:flex-start;gap:6px;line-height:1.5}
+.section-sep{height:0.5px;background:var(--border);margin:1rem 0}
+.hidden{display:none!important}
+@media(max-width:600px){.row2,.upload-grid,.override-grid,.stat-grid{grid-template-columns:1fr}.container{padding:1rem}}
 </style>
 </head>
 <body>
 
 <div class="topbar">
   <h1>巴西数据处理工具</h1>
-  <span class="sub">data.ai → Excel 底稿</span>
+  <span class="sub">data.ai CSV → Excel 底稿</span>
   <div class="rules-status">
     <span class="dot" id="rules-dot"></span>
     <span id="rules-status-text">加载规则库中...</span>
@@ -118,13 +108,8 @@
 
 <div class="container">
 
-  <!-- Step 1: Upload -->
   <div class="card">
-    <div class="card-title">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      上传数据文件
-    </div>
-
+    <div class="card-title">上传数据文件</div>
     <div class="row2" style="margin-bottom:1rem">
       <div class="field">
         <label>月份</label>
@@ -133,18 +118,14 @@
       <div class="field">
         <label>Overall CSV <span style="color:var(--red)">*</span></label>
         <div class="upload-zone" id="uz-overall" onclick="document.getElementById('f-overall').click()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <span class="uz-label" id="uz-overall-label">选择 data.ai Overall CSV</span>
           <input type="file" id="f-overall" accept=".csv" onchange="handleFile('overall',this)">
         </div>
       </div>
     </div>
-
     <div style="font-size:12px;color:var(--text2);margin-bottom:6px">分类别 CSV（可选，上传后合计数字更准确）</div>
     <div class="upload-grid" id="cat-upload-grid"></div>
-
     <div class="section-sep"></div>
-
     <div style="font-size:12px;color:var(--text2);margin-bottom:8px">手动覆盖时长（十亿分钟）</div>
     <div class="override-grid">
       <div class="override-item">
@@ -158,20 +139,14 @@
         <span class="note">来自内部看板，留空则用 data.ai 原始值</span>
       </div>
     </div>
-
     <button class="btn primary" id="run-btn" onclick="runPipeline()" disabled>开始处理</button>
   </div>
 
-  <!-- Log -->
   <div class="card hidden" id="log-card">
-    <div class="card-title">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-      处理日志
-    </div>
+    <div class="card-title">处理日志</div>
     <div class="log" id="log-box"></div>
   </div>
 
-  <!-- Results -->
   <div class="card hidden" id="results-card">
     <div class="tabs">
       <div class="tab active" onclick="switchTab('data')">数据预览</div>
@@ -179,7 +154,6 @@
       <div class="tab" onclick="switchTab('rules')">分类规则库</div>
     </div>
 
-    <!-- Data tab -->
     <div class="tab-panel active" id="tab-data">
       <div class="stat-grid">
         <div class="stat"><div class="val" id="s-total">—</div><div class="lbl">月总时长（十亿分钟）</div></div>
@@ -187,42 +161,30 @@
         <div class="stat"><div class="val" id="s-unknown">—</div><div class="lbl">未分类 App 数</div></div>
       </div>
       <div style="overflow-x:auto">
-        <table id="results-table">
+        <table>
           <thead><tr><th>App</th><th class="num">时长（十亿分钟）</th><th class="num">全局占比</th></tr></thead>
           <tbody id="results-tbody"></tbody>
         </table>
       </div>
       <div class="dl-row">
-        <button class="btn" onclick="downloadExcel()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          下载 Excel 底稿
-        </button>
-        <button class="btn" onclick="downloadCSV()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          下载 CSV
-        </button>
+        <button class="btn" onclick="downloadExcel()">下载 Excel 底稿</button>
+        <button class="btn" onclick="downloadCSV()">下载 CSV</button>
       </div>
     </div>
 
-    <!-- Unknown tab -->
     <div class="tab-panel" id="tab-unknown">
-      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">
-        以下 App 不在规则库中，请指定分类后点"保存到规则库"。保存后需重新提交到 GitHub 才能永久生效。
-      </p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">以下 App 不在规则库中，请指定分类后点"保存到规则库"。保存后需重新提交到 GitHub 才能永久生效。</p>
       <div class="unknown-list" id="unknown-list"></div>
       <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
         <button class="btn sm" onclick="saveUnknownRules()">保存选中分类到规则库</button>
         <button class="btn sm" onclick="downloadRulesJSON()">导出规则库 JSON</button>
       </div>
-      <div class="rules-note" style="margin-top:10px">
-        保存后请将下载的 <code>classification_rules.json</code> 提交到 GitHub 仓库根目录，下次打开工具时自动生效。
-      </div>
+      <div class="rules-note" style="margin-top:10px">保存后请将下载的 classification_rules.json 提交到 GitHub 仓库根目录，下次打开工具时自动生效。</div>
     </div>
 
-    <!-- Rules tab -->
     <div class="tab-panel" id="tab-rules">
       <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
-        <table id="rules-table-el">
+        <table>
           <thead><tr><th>App 名称</th><th>分类</th><th></th></tr></thead>
           <tbody id="rules-tbody"></tbody>
         </table>
@@ -233,15 +195,9 @@
         <button class="btn sm" onclick="addRule()">添加</button>
       </div>
       <div style="margin-top:12px;display:flex;gap:10px">
-        <button class="btn sm" onclick="downloadRulesJSON()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          导出规则库 JSON
-        </button>
+        <button class="btn sm" onclick="downloadRulesJSON()">导出规则库 JSON</button>
       </div>
-      <div class="rules-note">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        修改后点"导出规则库 JSON"，将下载的文件提交到 GitHub 仓库根目录，替换原有文件。下次打开工具时自动从 GitHub 加载最新规则。
-      </div>
+      <div class="rules-note">修改后点"导出规则库 JSON"，将下载的文件提交到 GitHub 仓库根目录，替换原有文件。下次打开工具时自动从 GitHub 加载最新规则。</div>
     </div>
   </div>
 
@@ -250,440 +206,495 @@
 <script>
 const CATEGORIES = ["社交","泛短视频","直播","长视频","社区","新闻资讯","在线阅读","浏览器/搜索","音乐/音频","游戏","电商","生活服务"];
 
+// 每个分类显示的Top N
+const TOP_N_BY_CAT = {"社交":6,"直播":5,"泛短视频":5,"长视频":5,"社区":5,"新闻资讯":5,"在线阅读":5,"浏览器/搜索":5,"音乐/音频":5,"游戏":5,"电商":5,"生活服务":5};
+
+// 分类合计的数据来源：
+// "overall" = 用Overall CSV的统一时长加总（手动挑选的分类）
+// "csv"     = 用分类别CSV的应用时长加总（data.ai有对应分类的）
+// 注意：两种情况下Top5都从Overall的统一时长取
+const CAT_TOTAL_SOURCE = {
+  "社交":"csv","游戏":"csv","电商":"csv","新闻资讯":"csv","在线阅读":"csv","音乐/音频":"csv",
+  "泛短视频":"overall","直播":"overall","长视频":"overall","社区":"overall","浏览器/搜索":"overall","生活服务":"overall"
+};
+
+// CSV分类键 → 我们的分类名
+const CSV_CAT_MAP = {social:"社交",video:"泛短视频",news:"新闻资讯",books:"在线阅读",music:"音乐/音频",games:"游戏",shopping:"电商"};
+
 let rules = {};
 let filesLoaded = {};
 let processedData = null;
 
-const REPO_RULES_URL = (() => {
-  const parts = location.pathname.replace(/\/+$/,'').split('/');
-  const repo = parts.length >= 2 ? parts.slice(1,3).join('/') : '';
-  if (location.hostname.includes('github.io') && repo) {
-    return `https://raw.githubusercontent.com/${location.hostname.replace('.github.io','')}/${parts[1]}/main/classification_rules.json`;
+const REPO_RULES_URL = (()=>{
+  const parts = location.pathname.replace(/\/+$/,"").split("/");
+  if(location.hostname.includes("github.io") && parts.length>=2){
+    return `https://raw.githubusercontent.com/${location.hostname.replace(".github.io","")}/${parts[1]}/main/classification_rules.json`;
   }
-  return './classification_rules.json';
+  return "./classification_rules.json";
 })();
 
-const DEFAULT_RULES = {"WhatsApp Messenger":"社交","WhatsApp Business":"社交","Facebook":"社交","X":"社交","Telegram":"社交","Discord":"社交","Facebook Messenger":"社交","Gmail":"社交","Snapchat":"社交","Threads":"社交","Grindr":"社交","Google Messenger":"社交","Contacts by Google":"社交","Amino: Communities and Chats":"社交","Opera Mini":"社交","Opera GX":"社交","Skype":"社交","Fast messager":"社交","Project Z: Metaverse Friends":"社交","Google Duo":"社交","Litmatch":"社交","IMVU Mobile":"社交","Animes Brasil - Animes em HD":"社交","Facecast":"直播","CallApp":"社交","HiWaifu: AI Friend & Waifu Hub":"社交","Hotmart Sparkle":"社交","Bate-Papo UOL para":"社交","Sticker.ly":"社交","Zangi Messenger":"社交","Zello Walkie Talkie":"社交","Yahoo Mail":"社交","Veeka":"社交","whoscall":"社交","Truecaller":"社交","SoulChill":"社交","Bluesky Social":"社交","Tumblr":"社交","Poppo":"社交","JAUMO":"社交","Whatsapp Plus":"社交","Instagram":"泛短视频","TikTok":"泛短视频","Kwai":"泛短视频","CapCut":"泛短视频","Likee":"泛短视频","Twitch":"直播","BIGO LIVE":"直播","Pluto.tv":"直播","Hago":"直播","YouTube":"长视频","Netflix":"长视频","Globo Play":"长视频","Amazon Prime Video":"长视频","disney+":"长视频","Disney+":"长视频","Pure Tuber":"长视频","MX Player":"长视频","VLC Media Player":"长视频","Waze":"社区","waze":"社区","Pinterest":"社区","Reddit":"社区","Quora":"社区","Helo - Share Your Life":"社区","Google News":"新闻资讯","G1":"新闻资讯","UOL | Notícias em Tempo Real":"新闻资讯","Opera News":"新闻资讯","Folha de S.Paulo":"新闻资讯","Wattpad":"在线阅读","Kindle":"在线阅读","JW Library":"在线阅读","ReadEra by READERA LLC":"在线阅读","Bible":"在线阅读","GALATEA":"在线阅读","NovelToon":"在线阅读","MangaToon":"在线阅读","KJV Bible":"在线阅读","Bible Offline by MrRocco":"在线阅读","BitBíblia (tela de bloqueio)":"在线阅读","Bíblia Sagrada":"在线阅读","Free Books by spiritfanfiction.com":"在线阅读","BueNovela":"在线阅读","Dreame":"在线阅读","Fizzo":"在线阅读","Lera: Livros Story & Audiobook":"在线阅读","Tapon":"在线阅读","Glorify: Daily Worship":"在线阅读","Google Play Books":"在线阅读","Chrome Browser":"浏览器/搜索","Google":"浏览器/搜索","Brave Browser: Fast AdBlocker":"浏览器/搜索","Samsung Internet Browser":"浏览器/搜索","Opera Browser":"浏览器/搜索","Microsoft Edge":"浏览器/搜索","Firefox Browser":"浏览器/搜索","Kiwi Browser":"浏览器/搜索","Adblock Browser: Fast & Secure":"浏览器/搜索","FAB Adblocker Browser: Adblock":"浏览器/搜索","Spotify":"音乐/音频","YouTube Music":"音乐/音频","Lark Player":"音乐/音频","Freecine":"长视频","Mi Music":"音乐/音频","Deezer":"音乐/音频","eSound":"音乐/音频","Music Player - MP3 Player, Audio Player":"音乐/音频","Simple Radio by Streema":"音乐/音频","Amazon Music":"音乐/音频","SoundCloud":"音乐/音频","RadiosNet":"音乐/音频","Cifra Club":"音乐/音频","BandLab":"音乐/音频","StarMaker Karaoke":"音乐/音频","Whatlisten: Player de música":"音乐/音频","Sua Música":"音乐/音频","Music Player by Recorder & Smart Apps":"音乐/音频","Offline Music Player by Mixtube Music player":"音乐/音频","Music Player by Music Player.":"音乐/音频","Music Player - MP3 Player":"音乐/音频","ROBLOX":"游戏","Free Fire":"游戏","Brawl Stars":"游戏","Minecraft Pocket Edition":"游戏","Clash Royale":"游戏","Royal Match":"游戏","Avatar World Games for Kids":"游戏","Supermarket Manager Simulator":"游戏","EA SPORTS FC™ MOBILE 24 SOCCER":"游戏","Candy Crush Saga":"游戏","Stumble Guys":"游戏","eFootball 2024":"游戏","Call of Duty: Mobile":"游戏","Blood Strike":"游戏","League of Legends: Wild Rift":"游戏","Retail Store Simulator":"游戏","Mobile Legends: Bang Bang":"游戏","Coin Master":"游戏","Toca Life: World":"游戏","Subway Surfers":"游戏","Pokémon GO":"游戏","PK XD":"游戏","Honor of Kings":"游戏","Candy Crush Soda Saga":"游戏","Melon Playground":"游戏","Crafting and Building by GeneRe":"游戏","Super Sus":"游戏","Dream League Soccer 2020":"游戏","Gacha Club":"游戏","My Singing Monsters":"游戏","Clash of Clans":"游戏","Farm Heroes Saga":"游戏","Gacha Life":"游戏","Buraco Jogatina":"游戏","Legend of Mushroom":"游戏","BitLife":"游戏","Block Blast Adventure Master":"游戏","Craft World":"游戏","Township":"游戏","Supreme Duelist Stickman":"游戏","Gacha Life 2":"游戏","PUBG MOBILE":"游戏","Hay Day":"游戏","Gardenscapes by Playrix":"游戏","Craftsman: Building Craft":"游戏","Genshin Impact":"游戏","Stardew Valley":"游戏","Happy Color":"游戏","Fishdom":"游戏","Among Us!":"游戏","PPSSPP":"游戏","Grand Theft Auto: San Andreas":"游戏","Call of Duty: Warzone":"游戏","WildCraft: Animal Sim 3D":"游戏","Honkai: Star Rail":"游戏","Terraria":"游戏","Evony":"游戏","Avakin Life":"游戏","Lords Mobile":"游戏","Super Bear Adventure":"游戏","DRAGON BALL LEGENDS":"游戏","My Boy!":"游戏","My Talking Tom 2":"游戏","Moto Wheelie 3D":"游戏","Dragon City":"游戏","Plants vs. Zombies 2":"游戏","Chess.com":"游戏","Blockman Go":"游戏","Homescapes":"游戏","Cartola FC Oficial":"游戏","My Talking Tom Friends":"游戏","Woodoku":"游戏","🐓Chicken Gun🐓":"游戏","Pizza Ready":"游戏","UNO by Mattel163":"游戏","MONOPOLY GO!":"游戏","Chapters-Interactive stories":"游戏","Mini World Block Art":"游戏","Screw Puzzle: Nuts & Bolts":"游戏","Tiledom":"游戏","Soccer Super Star":"游戏","Rise of Kingdoms":"游戏","Mini Soccer Star 2023":"游戏","Tile Club":"游戏","Skullgirls":"游戏","Car Parking Multiplayer":"游戏","Plants vs. Zombies":"游戏","World Soccer Champs":"游戏","AFK Journey":"游戏","Ragnarok Origin":"游戏","Bloons TD 6":"游戏","MegaJogos":"游戏","RAID: Shadow Legends":"游戏","Empires & Puzzles":"游戏","Age of Origins":"游戏","Goods Sort":"游戏","Moy 7 the Virtual Pet Game":"游戏","Boku Boku":"游戏","Duskwood":"游戏","Jigsaw Puzzles - Puzzle Game":"游戏","Zen Color":"游戏","Wood Nuts & Bolts Puzzle":"游戏","Uni":"游戏","Magic Jigsaw Puzzles":"游戏","King's Choice":"游戏","2 Player Games : the Challenge":"游戏","Last Day on Earth: Survival":"游戏","School Party Craft":"游戏","Projeto Grau":"游戏","Magic Rampage":"游戏","The Baby In Yellow":"游戏","Truckers of Europe 3":"游戏","Mafia City":"游戏","Head Ball 2":"游戏","Reckless Getaway 2":"游戏","2 3 4 Player Mini Games":"游戏","Rebaixados Brasil":"游戏","AetherSX2":"游戏","Pokémon Sleep":"游戏","Zombie Tsunami":"游戏","Toy Blast":"游戏","Mob Control":"游戏","State of Survival":"游戏","Geometry Dash":"游戏","Words Of Wonders":"游戏","Project Makeover":"游戏","SAKURA School Simulator":"游戏","Pokémon UNITE":"游戏","Pou":"游戏","Family Island":"游戏","Tomb of the Mask":"游戏","CodyCross":"游戏","Yu-Gi-Oh! Duel Links":"游戏","Sudoku - Classic Logic Game":"游戏","Cookie Jam":"游戏","Rise of Empire":"游戏","Spider Solitaire by MagmaMobile.com":"游戏","Video Game":"游戏","World Truck Driving Simulator":"游戏","Ludo Club":"游戏","Color Fan - Color By Number":"游戏","Golden Jogos：Truco & Dominó":"游戏","Stickman Party":"游戏","Antistress":"游戏","Drive Zone Online: Car Game":"游戏","Sky: Children of the Light":"游戏","Hexa Sort":"游戏","Tower War":"游戏","DraStic DS Emulator":"游戏","Angry Birds 2":"游戏","Daily Coloring":"游戏","Klondike Adventures":"游戏","Standoff 2":"游戏","Total Battle":"游戏","Piano Kids":"游戏","ARK: Survival Evolved":"游戏","Pixel Art":"游戏","Solar Smash":"游戏","Vice Online - Open World Games":"游戏","WorldBox":"游戏","Triple Tile":"游戏","GoreBox":"游戏","Granny":"游戏","Dan The Man":"游戏","Rec Room":"游戏","Episode":"游戏","House Designer":"游戏","MARVEL SNAP":"游戏","Talking Tom Hero Dash":"游戏","Whiteout Survival":"游戏","PPSSPP Gold":"游戏","Gartic":"游戏","Word Search Quest":"游戏","Harry Potter: Hogwarts Mystery":"游戏","Stick War: Legacy":"游戏","Offline Games - No Wifi Games":"游戏","Pixel Car Racer":"游戏","Zombie Catchers":"游戏","Dream Mania":"游戏","House Flipper: Home Renovation":"游戏","My Talking Tom":"游戏","Mosquito Bite 3D":"游戏","Hill Climb Racing 2":"游戏","Soccer Manager 2024 - Football":"游戏","Pet Rescue Saga":"游戏","Block Crazy Robo World":"游戏","Last War:Survival Game":"游戏","Real Racing 3":"游戏","The Sims FreePlay":"游戏","Football League 2023":"游戏","Art Puzzle":"游戏","My Perfect Hotel":"游戏","Good Pizza, Great Pizza":"游戏","Paint By Number":"游戏","Snake.io - Fun Online Slither":"游戏","Eatventure":"游戏","F1 Clash":"游戏","Cookie Run: Kingdom":"游戏","Truck Simulator : Ultimate":"游戏","Truco Vamos":"游戏","Tile Match - Match Puzzle Game":"游戏","Truco Vamos: Slots Crash Poker":"游戏","SimCity BuildIt":"游戏","Eggy Party":"游戏","FR LEGENDS":"游戏","Talking Tom Gold Run":"游戏","Extreme Car Driving Simulator":"游戏","Idle Lumber Empire":"游戏","The Spike - Volleyball Story":"游戏","The Sims Mobile":"游戏","Adorable Home":"游戏","Goat Simulator":"游戏","MORTAL KOMBAT X":"游戏","Rocket League Sideswipe":"游戏","Garden Affairs":"游戏","Numpuz":"游戏","Toca Kitchen 2":"游戏","CSR Racing 2":"游戏","Drivers Jobs Simulator":"游戏","Travel Town":"游戏","Hungry Shark Evolution":"游戏","Traffic Rider":"游戏","The Ants: Underground Kingdom":"游戏","Spider Fighter 3":"游戏","Block Puzzle Jewel":"游戏","Block Craft 3D":"游戏","Galaxy Attack: Alien Shooter":"游戏","X2 Blocks":"游戏","Mini Football":"游戏","We are Warriors":"游戏","Cat Jump":"游戏","Summoners War":"游戏","MARVEL Strike Force":"游戏","Age of Apes":"游戏","Pony Town":"游戏","My Talking Angela 2":"游戏","Black Clover M":"游戏","Suspects: Mansão Mistério":"游戏","Fortune Tiger":"游戏","Tile Win Cash":"游戏","Julian's Editor: Create & Play":"游戏","Guardian Tales":"游戏","June's Journey":"游戏","Shopee":"电商","MercadoLibre":"电商","SHEIN":"电商","AliExpress":"电商","Temu":"电商","Amazon":"电商","OLX Brasil":"电商","Magazine Luiza":"电商","Casas Bahia":"电商","enjoei":"电商","Netshoes":"电商","Lojas Renner":"电商","Americanas":"电商","Inlog Navegador Coleta":"电商","Tim Fun":"电商","Uber":"生活服务","iFood Delivery de Comida":"生活服务","99Taxis":"生活服务","Booking.com":"生活服务","Lalamove Driver":"生活服务","Google Photos":"忽略","Samsung Gallery":"忽略","Moto Camera 3":"忽略","Moto Camera 2":"忽略","Yoosee":"忽略","InShot":"忽略","Picsart":"忽略","KineMaster":"忽略","Video Downloader by InShot Inc":"忽略","Video Player All Format":"忽略","Gallery":"忽略","Intelbras Isic":"忽略","Alight Motion":"忽略","Web Video Cast | Browser to TV":"忽略","Gallery by Photo Gallery Tools":"忽略","YouCut":"忽略","Timestamp Camera":"忽略","Smart IPTV Xtream Player":"忽略","TVE Mobile":"长视频","CineTela - Filmes e Séries":"忽略","Vanced Official - Block All Ads For Tube Vanced":"忽略","Google Translate":"忽略","Canva":"忽略","Life360 Family Locator":"忽略","Samsung TouchWiz Home":"忽略","Clock by Google":"忽略","Samsung Clock":"忽略","Calculator by Google":"忽略","Google Play Store":"忽略","Google Play services":"忽略","Phone by Google":"忽略","Files Go by Google":"忽略","Google Maps":"忽略","Google Drive":"忽略","Google Docs":"忽略","Google Calendar":"忽略","Google Keep":"忽略","Google Go":"忽略","Nubank":"忽略","Banco do Brasil":"忽略","Itaú":"忽略","CAIXA":"忽略","Bradesco":"忽略","Santander Brasil":"忽略","Banco Inter":"忽略","PicPay":"忽略","Mercado Pago":"忽略","C6 Bank":"忽略","PagSeguro Minha Conta":"忽略","Banco PAN":"忽略","Caixa Tem":"忽略","FGTS":"忽略","ChatGPT":"忽略","LinkedIn":"社交","Character AI":"忽略","Duolingo: Learn Languages":"忽略","Microsoft Teams":"忽略","Microsoft Outlook":"忽略","Nova Launcher":"忽略","Samsung Notes":"忽略","Samsung My Files":"忽略","Samsung Calculator":"忽略","Security":"忽略","Arrow Launcher":"忽略","Smart Launcher":"忽略","Parallel Space-Multi Accounts":"忽略","File Manager by  Flashlight Clock":"忽略","PolySpeak - AI Character Chat":"忽略","Tinder":"社交","Badoo":"社交","Adobe Reader":"忽略","Bing":"浏览器/搜索","Binance":"忽略","Glance":"忽略","Star+":"忽略","Max: Stream HBO, TV, & Movies":"长视频","Crunchyroll":"长视频","ColorNote Notepad Notes":"忽略","Unique":"忽略","OiTube":"忽略","YouTube Kids":"长视频","Uber Driver":"忽略","99 POP":"忽略","POCO Launcher 2.0 - Customize,":"忽略","Tomato - Animes e Mangás":"忽略","ibisPaint":"忽略","Android Auto":"忽略","safari":"浏览器/搜索","UC Browser":"浏览器/搜索","Vivaldi Browser":"浏览器/搜索","Pure Web Browser-Ad Blocker":"浏览器/搜索","Tor Browser":"浏览器/搜索","Ecosia Browser":"浏览器/搜索","Whats Web":"浏览器/搜索","Web Browser & Fast Explorer":"浏览器/搜索","Phoenix Browser":"浏览器/搜索","Whats Web - Whatscan for Web":"浏览器/搜索","Whats Web by 颖妮 王":"浏览器/搜索","POP Browser Lite":"浏览器/搜索","Clone WA Web Scanner - Dual WA":"浏览器/搜索","Dual WA: Web Messenger Duo":"浏览器/搜索","WhatWeb Cloner":"浏览器/搜索","Whats Web by Firehawk":"浏览器/搜索","XBrowser":"浏览器/搜索","Messenger for WhatsApp Web +":"浏览器/搜索","Whats Web Scanner - Dual WA":"浏览器/搜索","Whatscan Web - Clone App":"浏览器/搜索","WA Web":"浏览器/搜索","Whats Web by CodeKraftApps":"浏览器/搜索","Dolphin Browser":"浏览器/搜索","Max Browser-Private & Security":"浏览器/搜索","Incognito Browser - Go Private":"浏览器/搜索","Whats Web: Whatscan Web 2021":"浏览器/搜索","InBrowser Beta":"浏览器/搜索","Dual Chat - Web Scan":"浏览器/搜索","Wh-Ap Web - 2nd Msgr":"浏览器/搜索","CryptoTab Browser":"浏览器/搜索","InBrowser":"浏览器/搜索","Microsoft Edge Canary":"浏览器/搜索","Microsoft Edge Beta":"浏览器/搜索","Whatsclone - Whatscan web":"浏览器/搜索","Avast Secure Browser":"浏览器/搜索","Dual Messaging for Web App":"浏览器/搜索","Clone WA - 2Space WA Web Scan":"浏览器/搜索","Brave Browser (Beta)":"浏览器/搜索","Opera Crypto Browser":"浏览器/搜索","UC Browser Turbo":"浏览器/搜索","Armorfly Browser & Downloader - Private , Safe":"浏览器/搜索","Internet Browser":"浏览器/搜索","Web Explorer: Private Browser":"浏览器/搜索","Whatscan for Web : Whatsweb QR":"浏览器/搜索","Brave Browser (Nightly)":"浏览器/搜索","Pawxy - Fast VPN & Web Browser":"浏览器/搜索","Web Browser - Fast & Privacy":"浏览器/搜索","Web Browser & Explorer":"浏览器/搜索","Carbon: Super Fast Browser":"浏览器/搜索","Web Scan - Dual Chat":"浏览器/搜索","KUTO Mini Browser-Tiny, Fast,":"浏览器/搜索","Whats Web Scanner - Clone App":"浏览器/搜索","Web Browser - Secure Explorer":"浏览器/搜索","Hola Browser-Private&Fast web":"浏览器/搜索","Microsoft Edge Dev":"浏览器/搜索","AVG Secure Browser":"浏览器/搜索","WA Web - Dual Chat":"浏览器/搜索","Pi Browser":"浏览器/搜索","WhatsWeb & Whatscan Web":"浏览器/搜索","Super Browser: Fast & Private":"浏览器/搜索","Whats Web Scan":"浏览器/搜索","OceanHero - Search the web and":"浏览器/搜索","Private Browser":"浏览器/搜索","GB WA Latest For WhatsApp Web":"浏览器/搜索","ConferênciaWeb":"浏览器/搜索","inDrive":"生活服务","Airbnb":"生活服务","quora":"社区","Flipboard":"新闻资讯","Zero Hora":"新闻资讯","Apple Music":"音乐/音频","AnmBR":"长视频","CineVS Oficial Filmes e Séries":"长视频","ReelShort":"长视频","DramaBox - movies and drama":"长视频","XCIPTV PLAYER":"长视频","Cinegato - Strea(miau)":"长视频","Central Play Séries":"长视频","LisoFlix - Filmes & Séries":"长视频","FuzzTv":"长视频","Viki":"长视频","+SBT":"长视频","Roku":"长视频","CinexTela - Filmes em Casa":"长视频","Claro Tv+":"长视频","TLN+ : Filmes e Séries":"长视频","Lark Video Player: HD Video":"长视频","ShortTV":"长视频","IPTV Stream Player: Watch TV":"长视频","PlayPlus":"长视频","Play Animes TV":"长视频","Betteranime - Animes":"长视频","NetShort：Popular Dramas & TV":"长视频","Homura Animes":"长视频","Meu Dorama":"长视频","Dramawave":"长视频","My Family Cinema":"长视频","Iptv blink player":"长视频","9Xtream - Download & Play iPTV":"长视频","Netflix Stories: Love Is Blind":"长视频","Drama Home - Short Movies":"长视频","RapidTV":"长视频","Paramount+":"长视频","Watchug: Filmes e Séries":"长视频","SKY+: TV+Streaming":"长视频","TV Digital: tv online ao vivo":"长视频","Amenic Plus: Filmes e Séries":"长视频","YouCine -O Melhor Movie Player":"长视频","Futebol Brasileiro Ao Vivo":"长视频","Doramas Love - Doramas Online":"长视频","Univer Video: Filmes e Séries":"长视频","Cine Novelas":"长视频","AnimeTV by TEAM ATV":"长视频","MeloShort-Movies&Dramas":"长视频","SuperCine.TV - Filmes e Séries":"长视频","NinjaTV - Filmes e Séries":"长视频","Saraflix Plus: Filmes e Séries":"长视频","CinexTela - Filmes e Séries":"长视频","CineVerse V2":"长视频","Micro Drama-Watch Short&Dramas":"长视频","Sua Novela - Drama Grátis":"长视频","GoodShort":"长视频","Mi Video-Short Video Download":"泛短视频","Reel":"泛短视频","Kick: Live Streaming":"直播","Kako Live":"直播","Honista":"社交","Rave":"社交","happn":"社交","Connected2.me":"社交","OmeTV – Video Chat Alternative":"社交","ZEPETO":"社交","Snaplay":"社交","RandoChat App":"社交","mo.co":"社交","HelloTalk":"社交","Lado - Chat Video Party":"社交","status - sims but social media":"社交","imo":"社交","BAND":"社交","Everskies":"社交","Club Cooee":"社交","Bumble":"社交","FlashScore":"社区","365Scores":"社区","SofaScore":"社区","bet365 Sports":"社区","Partidas De Hoje":"社区","Onefootball":"社区","Globoesporte.com":"社区","Manga Fox - Manga Comic Reader":"在线阅读","Moon+ Reader":"在线阅读","Women's Bible-Daily Pray":"在线阅读","FantacyStory: novels, fictions":"在线阅读","Seekee - Safe&Fast Browser":"浏览器/搜索","FordBrowser":"浏览器/搜索","Mi Browser":"浏览器/搜索","Cattery Browser":"浏览器/搜索","Chrome Dev":"浏览器/搜索","Aloha Browser":"浏览器/搜索","DuckDuckGo":"浏览器/搜索","YMusic Lite":"音乐/音频","TuneIn Radio":"音乐/音频","Pi Music Player":"音乐/音频","Offline Music Player- Weezer":"音乐/音频","Piano Magic Sky 7 - Pop Songs":"音乐/音频","Bass Equalizer":"音乐/音频","Méliuz":"电商","Prezão Free":"电商","MadeiraMadeira":"电商","Riachuelo":"电商","DAFITI":"电商","Centauro":"电商","O Boticário":"电商","C&A Brasil":"电商","BlaBlaCar":"生活服务","Rappi":"生活服务","3D Bolt Master®: Screw Master®":"游戏","My Talking Tom Friends 2":"游戏","Delta Force":"游戏","The Walking Dead: Survivors":"游戏","Story Mind":"游戏","Dominoes Master: Juego Clásico":"游戏","Wool Sort":"游戏","DDTank Origin":"游戏","Castle - Make and Play":"游戏","WePlay":"游戏","MU: Dark Epoch":"游戏","Girl Rescue: Dragon Out!":"游戏","Screwdom 3D":"游戏","Rainbow Six":"游戏","Tap Gallery: Unpuzzle Images":"游戏","Marble Match Classic":"游戏","Unscrew Nuts Sort®: Pin Puzzle":"游戏","IGAMES PSP":"游戏","Jurassic World: The Game":"游戏","Tile Park - Matching Puzzle":"游戏","Car Jam":"游戏","Craftarena":"游戏","Screw Master 3D: Pin Puzzle":"游戏","The Grand Mafia":"游戏","DC Worlds Collide":"游戏","Bubble Witch 3 Saga":"游戏","Xbox":"游戏","Steam":"游戏","Once Human":"游戏","Dessert Party":"游戏","Conquer Countries":"游戏","Squad Busters":"游戏","Ludo King":"游戏","Idle Guy Lamar":"游戏","Wood Block Puzzle":"游戏","That's My Seat - Logic Puzzle":"游戏","TDS - Tower Destiny Survive":"游戏","Goods Sort Master":"游戏","Triple Match":"游戏","Rio Rush":"游戏","Wasteland Life!":"游戏","Marvel Contest of Champions":"游戏","Craft Block World Building":"游戏","Google Play Games":"游戏","Word: Association Game":"游戏","Slayer Legend":"游戏","8 Ball Live":"游戏","Solitaire by PuzzleMaker - block puzzle":"游戏","Ragnarok X: Next Generation":"游戏","Collect Em All":"游戏","BitLife GO! - Simulation vie":"游戏","Dragons: Rise of Berk":"游戏","Rummikub":"游戏","Cube Master 3D":"游戏","DC: Dark Legion™":"游戏","Galaxy Defense: Fortress TD":"游戏","Akinator the Genie":"游戏","Unmatched EGO - Soccer Action":"游戏","Bus Out":"游戏","LUDUS・Battle Arena":"游戏","Merge Match":"游戏","Going Balls":"游戏","Mini Block Craft 2":"游戏","Nitro Nation":"游戏","HAIKYU!! FLY HIGH":"游戏","Diablo Immortal":"游戏","Pipas":"游戏","Space MobilityWare Solitaire":"游戏","Wheel of Fame - Guess words":"游戏","Identity V":"游戏","Pengu - Virtual Pets":"游戏","Idle Zombie Miner: Gold Tycoon":"游戏","Dragon Ball Z Dokkan Battle":"游戏","Office Building - Idle Tycoon":"游戏","Poly Craft":"游戏","MCPEDL for Minecraft":"游戏","Glow Fashion Idol":"游戏","Chess - Offline Board Game":"游戏","Kitty Sort: Twisted Tails":"游戏","Hole Em All: Collect Master":"游戏","Color Block Jam":"游戏","I Am Cat - original game":"游戏","Beyond":"游戏","Fashion Stylist: Dress Up Game":"游戏","Gangs Wars: Pixel Shooter RP":"游戏","Island Questaway":"游戏","GTA: San Andreas":"游戏","Merge Fellas":"游戏","Pixel Craft City":"游戏","Idle Bank Tycoon: Money Empire":"游戏","Color Goods™ - Coloring Games":"游戏","Train Miner: Idle Railway Game":"游戏","Last Stronghold: Idle Survival":"游戏","Merge Dragons":"游戏","Mario Kart Tour":"游戏","Westland Survival":"游戏","Crossword Jam":"游戏","Racing in Car 2021":"游戏","Nut Sort-Color Puzzle Games":"游戏","Traffic Frenzy: Road Jam":"游戏","MARVEL Mystic Mayhem":"游戏","Chainsaw Juice King":"游戏","The Tiger":"游戏","FreeCell Solitaire":"游戏","Bully: Anniversary Edition":"游戏","Craft Building Block World 3D":"游戏","Influencer Story: Rise to Fame":"游戏","Nut sort - Nuts Sort Puzzle":"游戏","Nonograms Katana":"游戏","Kite Fighting":"游戏","Screw Pin Jam Puzzle":"游戏","Blox World":"游戏","World Soccer Simulator 2026":"游戏","Days After: Survival Craft":"游戏","Crystal of Atlan":"游戏","Sudoku - Classic Sudoku Puzzle":"游戏","Global City":"游戏","Block Puzzle Blast":"游戏","Seat Away":"游戏","Design Show: Match 3 puzzles":"游戏","Happy Merge Home":"游戏","Metal Slug: Awakening":"游戏","Blossom Match":"游戏","Cookingdom":"游戏","PlayStation App":"游戏","Clock Goods Sort":"游戏","Poly.AI - Create AI Chat Bot":"忽略","Emochi: Unlimited Chat with AI":"忽略","Tomato - A&M":"忽略","Mobitraxx PRO":"忽略","SnapTube":"忽略","GreenTuber block ads on videos":"忽略","Chai - Chat With Ai Bots":"忽略","iCSee":"忽略","ZOOM Cloud Meetings":"忽略","DeepSeek":"忽略","Zapéx":"忽略","Calculator":"忽略","Entregador":"忽略","AutEM Mobile":"忽略","MY TIM":"忽略","Water Tracker: Water Reminder":"忽略","Talkie: Soulful AI, AI Friend":"忽略","XOS Launcher -Cool Stylish":"忽略","HiAI Chat - Make AI Friends":"忽略","FlipaClip":"忽略","Meu INSS":"忽略","Timo":"忽略","Coleta - Assist. Operações":"忽略","Carteira Digital de Trânsito":"忽略","Meu Vivo App":"忽略","Microsoft Copilot":"忽略","Google Sheets":"忽略","Antivirus Booster & Cleaner":"忽略","Hyper":"忽略","Photo Editor":"忽略","Transit Directions by Moovit":"忽略","gov.br":"忽略","Carteira de Trabalho":"忽略","MAXPLUS 3.0":"忽略","MinhaClaro":"忽略","Luzia: Your AI Assistant":"忽略","Microsoft Word":"忽略","MIUI Style Notes App":"忽略","Microsoft Office Mobile":"忽略","CamScanner":"忽略","OneDrive":"忽略","Pulsus - Agente MDM":"忽略","Strava Running and Cycling":"忽略","Mi Wallpaper Carousel":"忽略","Amazon Alexa":"忽略","TeraBox":"忽略","SPX Motorista Parceiro":"忽略","Flip Clock: World Clock":"忽略","INFO Sales Force":"忽略","Microsoft Authenticator":"忽略","Launcher iOS 16":"忽略","Radarbot":"忽略","meu pag":"忽略","Iwee":"忽略","Alarm Clock Xtreme":"忽略","Mibo Cam":"忽略","Tp-Link Tapo":"忽略","CittaMobi":"忽略","App Vault":"忽略","Wallpapers for WA":"忽略","Amazon Seller":"忽略","Ifood Para Parceiros":"忽略","Alarmy":"忽略","Samsung Pay":"忽略","Grok - AI Assistant":"忽略","LG SmartThinQ":"忽略","ZArchiver":"忽略","Cleaner":"忽略","Amazon Fire TV Remote":"忽略","Indeed Job Search":"忽略","HiOS Launcher - Fast":"忽略","Drogasil":"忽略","AIO Phone Booster":"忽略","McDonald's App":"忽略","Zé Delivery de Bebidas":"忽略","Sala do Futuro":"忽略","WebMotors":"忽略","Logistics":"忽略","PDF Reader by QR Code Scanner":"忽略","Mi File Manager":"忽略","Mangeek WiFi Passwords Map":"忽略","Instabridge":"忽略","Dual Space":"忽略","OPPO Photos":"忽略","Device Maintenance":"忽略","Calculator Lock":"忽略","Droga Raia":"忽略","Daily Weather Launcher - Radar":"忽略","Google Authenticator":"忽略","Bybit":"忽略","PhoneFixer-Memory Cleaner":"忽略","SmartThings":"忽略","Move to iOS":"忽略","Flo by Flo Health":"忽略","Azul Airlines":"忽略","Gboard":"忽略","MyTherapy: Medication Reminder":"忽略","Dropbox":"忽略","TV Connect":"忽略","Revendedor O Boticário":"忽略","V380":"忽略","Xiaomi Contacts and dialer":"忽略","Consultoria Natura":"忽略","Gallery - Album, Photo Vault":"忽略","Notepad by Sappalodapps":"忽略","Sockslite Pro - Cliente VPN":"忽略","Sleep Cycle alarm clock":"忽略","Personal Safety":"忽略","MFIT Personal":"忽略","WPS Office":"忽略","Muviz Edge: AOD & Edge Lights":"忽略","Hi.AI - Chat With AI Character":"忽略","Drink Alarms: Water Tracker":"忽略","Bradesco Saúde":"忽略","Vagas de empregos":"忽略","Google Earth":"忽略","SMARTFIT APP":"忽略","Decolar.com":"忽略","Mi Calendar":"忽略","Microsoft Excel":"忽略","Daily Forecast: Weather&Radar":"忽略","Flightradar24":"忽略","Mi Remote controller":"忽略","Launcher OS 2026: Fast & Clean":"忽略","NET":"忽略","Moto Widget":"忽略","V380 Pro":"忽略","Niagara Launcher":"忽略","Fast Notepad":"忽略","Garmin Connect":"忽略","Diamante":"忽略","Smart Life - Smart Living":"忽略","Next Fit":"忽略","2Accounts - Dual Apps":"忽略","Avast Security & Privacy":"忽略","Crushon AI":"忽略","Screenshot Editor":"忽略","QR Scanner ETG":"忽略","Easy Notes - Note Pad Notebook":"忽略","Motorola Notifications":"忽略","Hevy":"忽略","Weather - By Xiaomi":"忽略","AmpereFlow: Battery Speed, AOD":"忽略","Notion - Notes, Tasks, Wikis":"忽略","Talking Alarm Clock":"忽略","BlackNote: Dark Notes, Notepad":"忽略","Google Home":"忽略","Cx File Explorer":"忽略","Perplexity":"忽略","Hik-Connect":"忽略","SCA Aluno":"忽略","Epson iPrint":"忽略","Samsung Voice Recorder":"忽略","Autodesk SketchBook":"忽略","Google Text-to-speech":"忽略","UniMote":"忽略","App Lock - Fingerprint Lock":"忽略","AppLock":"忽略","MacroDroid - Device Automation":"忽略","GOL | Airline Tickets":"忽略","App Lock - Lock Apps":"忽略","Photo Video Maker Photo Editor":"忽略","Smart Launcher(Best free launcher,no ads)":"忽略","Livelo":"忽略","Hyde App Hider - Hide Apps":"忽略","Family Life":"忽略","Ice Cream Roll - Cool Launcher":"忽略","Claro Flex":"忽略","Circuit Route Planner":"忽略","Correios":"忽略","Health Tracker: BP Hub":"忽略","Google Family Link":"忽略","Remini":"忽略","Google Classroom":"忽略","All Video Downloader & Player":"忽略","Burger King Brasil":"忽略","Gran Cursos":"忽略","Zé Entregador":"忽略","Mercado Envíos Extra":"忽略","Lock Screen Magazine":"忽略","Slack":"忽略","Coleta - Assistente de Operações":"忽略"};
+const DEFAULT_RULES = {"WhatsApp Messenger":"社交","WhatsApp Business":"社交","Facebook":"社交","X":"社交","Telegram":"社交","Discord":"社交","Facebook Messenger":"社交","Gmail":"社交","Snapchat":"社交","Threads":"社交","Grindr":"社交","Google Messenger":"社交","Contacts by Google":"社交","Amino: Communities and Chats":"社交","Opera Mini":"社交","Opera GX":"社交","Skype":"社交","Fast messager":"社交","Project Z: Metaverse Friends":"社交","Google Duo":"社交","Litmatch":"社交","IMVU Mobile":"社交","Animes Brasil - Animes em HD":"社交","Facecast":"忽略","CallApp":"社交","HiWaifu: AI Friend & Waifu Hub":"社交","Hotmart Sparkle":"社交","Bate-Papo UOL para":"社交","Sticker.ly":"社交","Zangi Messenger":"社交","Zello Walkie Talkie":"社交","Yahoo Mail":"社交","Veeka":"社交","whoscall":"社交","Truecaller":"社交","SoulChill":"社交","Bluesky Social":"社交","Tumblr":"社交","Poppo":"社交","JAUMO":"社交","Whatsapp Plus":"社交","Instagram":"泛短视频","TikTok":"泛短视频","Kwai":"泛短视频","CapCut":"泛短视频","Likee":"泛短视频","Twitch":"直播","BIGO LIVE":"直播","Pluto.tv":"直播","Hago":"直播","YouTube":"长视频","Netflix":"长视频","Globo Play":"长视频","Amazon Prime Video":"长视频","disney+":"长视频","Disney+":"长视频","Pure Tuber":"长视频","MX Player":"长视频","VLC Media Player":"长视频","Waze":"社区","waze":"社区","Pinterest":"社区","Reddit":"社区","Quora":"社区","Helo - Share Your Life":"社区","Google News":"新闻资讯","G1":"新闻资讯","UOL | Notícias em Tempo Real":"新闻资讯","Opera News":"新闻资讯","Folha de S.Paulo":"新闻资讯","Wattpad":"在线阅读","Kindle":"在线阅读","JW Library":"在线阅读","ReadEra by READERA LLC":"在线阅读","Bible":"在线阅读","GALATEA":"在线阅读","NovelToon":"在线阅读","MangaToon":"在线阅读","KJV Bible":"在线阅读","Bible Offline by MrRocco":"在线阅读","BitBíblia (tela de bloqueio)":"在线阅读","Bíblia Sagrada":"在线阅读","Free Books by spiritfanfiction.com":"在线阅读","BueNovela":"在线阅读","Dreame":"在线阅读","Fizzo":"在线阅读","Lera: Livros Story & Audiobook":"在线阅读","Tapon":"在线阅读","Glorify: Daily Worship":"在线阅读","Google Play Books":"在线阅读","Chrome Browser":"浏览器/搜索","Google":"浏览器/搜索","Brave Browser: Fast AdBlocker":"浏览器/搜索","Samsung Internet Browser":"浏览器/搜索","Opera Browser":"浏览器/搜索","Microsoft Edge":"浏览器/搜索","Firefox Browser":"浏览器/搜索","Kiwi Browser":"浏览器/搜索","Adblock Browser: Fast & Secure":"浏览器/搜索","FAB Adblocker Browser: Adblock":"浏览器/搜索","Spotify":"音乐/音频","YouTube Music":"音乐/音频","Lark Player":"音乐/音频","Freecine":"音乐/音频","Mi Music":"音乐/音频","Deezer":"音乐/音频","eSound":"音乐/音频","Music Player - MP3 Player, Audio Player":"音乐/音频","Simple Radio by Streema":"音乐/音频","Amazon Music":"音乐/音频","SoundCloud":"音乐/音频","RadiosNet":"音乐/音频","Cifra Club":"音乐/音频","BandLab":"音乐/音频","StarMaker Karaoke":"音乐/音频","Whatlisten: Player de música":"音乐/音频","Sua Música":"音乐/音频","Music Player by Recorder & Smart Apps":"音乐/音频","Offline Music Player by Mixtube Music player":"音乐/音频","Music Player by Music Player.":"音乐/音频","Music Player - MP3 Player":"音乐/音频","ROBLOX":"游戏","Free Fire":"游戏","Brawl Stars":"游戏","Minecraft Pocket Edition":"游戏","Clash Royale":"游戏","Royal Match":"游戏","Avatar World Games for Kids":"游戏","Supermarket Manager Simulator":"游戏","EA SPORTS FC™ MOBILE 24 SOCCER":"游戏","Candy Crush Saga":"游戏","Stumble Guys":"游戏","eFootball 2024":"游戏","Call of Duty: Mobile":"游戏","Blood Strike":"游戏","League of Legends: Wild Rift":"游戏","Retail Store Simulator":"游戏","Mobile Legends: Bang Bang":"游戏","Coin Master":"游戏","Toca Life: World":"游戏","Subway Surfers":"游戏","Pokémon GO":"游戏","PK XD":"游戏","Honor of Kings":"游戏","Candy Crush Soda Saga":"游戏","Melon Playground":"游戏","Crafting and Building by GeneRe":"游戏","Super Sus":"游戏","Dream League Soccer 2020":"游戏","Gacha Club":"游戏","My Singing Monsters":"游戏","Clash of Clans":"游戏","Farm Heroes Saga":"游戏","Gacha Life":"游戏","Buraco Jogatina":"游戏","Legend of Mushroom":"游戏","BitLife":"游戏","Block Blast Adventure Master":"游戏","Craft World":"游戏","Township":"游戏","Supreme Duelist Stickman":"游戏","Gacha Life 2":"游戏","PUBG MOBILE":"游戏","Hay Day":"游戏","Gardenscapes by Playrix":"游戏","Craftsman: Building Craft":"游戏","Genshin Impact":"游戏","Stardew Valley":"游戏","Happy Color":"游戏","Fishdom":"游戏","Among Us!":"游戏","PPSSPP":"游戏","Grand Theft Auto: San Andreas":"游戏","Call of Duty: Warzone":"游戏","WildCraft: Animal Sim 3D":"游戏","Honkai: Star Rail":"游戏","Terraria":"游戏","Evony":"游戏","Avakin Life":"游戏","Lords Mobile":"游戏","Super Bear Adventure":"游戏","DRAGON BALL LEGENDS":"游戏","My Boy!":"游戏","My Talking Tom 2":"游戏","Moto Wheelie 3D":"游戏","Dragon City":"游戏","Plants vs. Zombies 2":"游戏","Chess.com":"游戏","Blockman Go":"游戏","Homescapes":"游戏","Cartola FC Oficial":"游戏","My Talking Tom Friends":"游戏","Woodoku":"游戏","🐓Chicken Gun🐓":"游戏","Pizza Ready":"游戏","UNO by Mattel163":"游戏","MONOPOLY GO!":"游戏","Chapters-Interactive stories":"游戏","Mini World Block Art":"游戏","Screw Puzzle: Nuts & Bolts":"游戏","Tiledom":"游戏","Soccer Super Star":"游戏","Rise of Kingdoms":"游戏","Mini Soccer Star 2023":"游戏","Tile Club":"游戏","Skullgirls":"游戏","Car Parking Multiplayer":"游戏","Plants vs. Zombies":"游戏","World Soccer Champs":"游戏","AFK Journey":"游戏","Ragnarok Origin":"游戏","Bloons TD 6":"游戏","MegaJogos":"游戏","RAID: Shadow Legends":"游戏","Empires & Puzzles":"游戏","Age of Origins":"游戏","Goods Sort":"游戏","Moy 7 the Virtual Pet Game":"游戏","Boku Boku":"游戏","Duskwood":"游戏","Jigsaw Puzzles - Puzzle Game":"游戏","Zen Color":"游戏","Wood Nuts & Bolts Puzzle":"游戏","Uni":"游戏","Magic Jigsaw Puzzles":"游戏","King's Choice":"游戏","2 Player Games : the Challenge":"游戏","Last Day on Earth: Survival":"游戏","School Party Craft":"游戏","Projeto Grau":"游戏","Magic Rampage":"游戏","The Baby In Yellow":"游戏","Truckers of Europe 3":"游戏","Mafia City":"游戏","Head Ball 2":"游戏","Reckless Getaway 2":"游戏","2 3 4 Player Mini Games":"游戏","Rebaixados Brasil":"游戏","AetherSX2":"游戏","Pokémon Sleep":"游戏","Zombie Tsunami":"游戏","Toy Blast":"游戏","Mob Control":"游戏","State of Survival":"游戏","Geometry Dash":"游戏","Words Of Wonders":"游戏","Project Makeover":"游戏","SAKURA School Simulator":"游戏","Pokémon UNITE":"游戏","Pou":"游戏","Family Island":"游戏","Tomb of the Mask":"游戏","CodyCross":"游戏","Yu-Gi-Oh! Duel Links":"游戏","Sudoku - Classic Logic Game":"游戏","Cookie Jam":"游戏","Rise of Empire":"游戏","Spider Solitaire by MagmaMobile.com":"游戏","Video Game":"游戏","World Truck Driving Simulator":"游戏","Ludo Club":"游戏","Color Fan - Color By Number":"游戏","Golden Jogos：Truco & Dominó":"游戏","Stickman Party":"游戏","Antistress":"游戏","Drive Zone Online: Car Game":"游戏","Sky: Children of the Light":"游戏","Hexa Sort":"游戏","Tower War":"游戏","DraStic DS Emulator":"游戏","Angry Birds 2":"游戏","Daily Coloring":"游戏","Klondike Adventures":"游戏","Standoff 2":"游戏","Total Battle":"游戏","Piano Kids":"游戏","ARK: Survival Evolved":"游戏","Pixel Art":"游戏","Solar Smash":"游戏","Vice Online - Open World Games":"游戏","WorldBox":"游戏","Triple Tile":"游戏","GoreBox":"游戏","Granny":"游戏","Dan The Man":"游戏","Rec Room":"游戏","Episode":"游戏","House Designer":"游戏","MARVEL SNAP":"游戏","Talking Tom Hero Dash":"游戏","Whiteout Survival":"游戏","PPSSPP Gold":"游戏","Gartic":"游戏","Word Search Quest":"游戏","Harry Potter: Hogwarts Mystery":"游戏","Stick War: Legacy":"游戏","Offline Games - No Wifi Games":"游戏","Pixel Car Racer":"游戏","Zombie Catchers":"游戏","Dream Mania":"游戏","House Flipper: Home Renovation":"游戏","My Talking Tom":"游戏","Mosquito Bite 3D":"游戏","Hill Climb Racing 2":"游戏","Soccer Manager 2024 - Football":"游戏","Pet Rescue Saga":"游戏","Block Crazy Robo World":"游戏","Last War:Survival Game":"游戏","Real Racing 3":"游戏","The Sims FreePlay":"游戏","Football League 2023":"游戏","Art Puzzle":"游戏","My Perfect Hotel":"游戏","Good Pizza, Great Pizza":"游戏","Paint By Number":"游戏","Snake.io - Fun Online Slither":"游戏","Eatventure":"游戏","F1 Clash":"游戏","Cookie Run: Kingdom":"游戏","Truck Simulator : Ultimate":"游戏","Truco Vamos":"游戏","Tile Match - Match Puzzle Game":"游戏","Truco Vamos: Slots Crash Poker":"游戏","SimCity BuildIt":"游戏","Eggy Party":"游戏","FR LEGENDS":"游戏","Talking Tom Gold Run":"游戏","Extreme Car Driving Simulator":"游戏","Idle Lumber Empire":"游戏","The Spike - Volleyball Story":"游戏","The Sims Mobile":"游戏","Adorable Home":"游戏","Goat Simulator":"游戏","MORTAL KOMBAT X":"游戏","Rocket League Sideswipe":"游戏","Garden Affairs":"游戏","Numpuz":"游戏","Toca Kitchen 2":"游戏","CSR Racing 2":"游戏","Drivers Jobs Simulator":"游戏","Travel Town":"游戏","Hungry Shark Evolution":"游戏","Traffic Rider":"游戏","The Ants: Underground Kingdom":"游戏","Spider Fighter 3":"游戏","Block Puzzle Jewel":"游戏","Block Craft 3D":"游戏","Galaxy Attack: Alien Shooter":"游戏","X2 Blocks":"游戏","Mini Football":"游戏","We are Warriors":"游戏","Cat Jump":"游戏","Summoners War":"游戏","MARVEL Strike Force":"游戏","Age of Apes":"游戏","Pony Town":"游戏","My Talking Angela 2":"游戏","Black Clover M":"游戏","Suspects: Mansão Mistério":"游戏","Fortune Tiger":"游戏","Tile Win Cash":"游戏","Julian's Editor: Create & Play":"游戏","Guardian Tales":"游戏","June's Journey":"游戏","Shopee":"电商","MercadoLibre":"电商","SHEIN":"电商","AliExpress":"电商","Temu":"电商","Amazon":"电商","OLX Brasil":"电商","Magazine Luiza":"电商","Casas Bahia":"电商","enjoei":"电商","Netshoes":"电商","Lojas Renner":"电商","Americanas":"电商","Inlog Navegador Coleta":"电商","Tim Fun":"电商","Uber":"生活服务","iFood Delivery de Comida":"生活服务","99Taxis":"生活服务","Booking.com":"生活服务","Lalamove Driver":"生活服务","Google Photos":"忽略","Samsung Gallery":"忽略","Moto Camera 3":"忽略","Moto Camera 2":"忽略","Yoosee":"忽略","InShot":"忽略","Picsart":"忽略","KineMaster":"忽略","Video Downloader by InShot Inc":"忽略","Video Player All Format":"忽略","Gallery":"忽略","Intelbras Isic":"忽略","Alight Motion":"忽略","Web Video Cast | Browser to TV":"忽略","Gallery by Photo Gallery Tools":"忽略","YouCut":"忽略","Timestamp Camera":"忽略","Smart IPTV Xtream Player":"忽略","TVE Mobile":"长视频","CineTela - Filmes e Séries":"忽略","Vanced Official - Block All Ads For Tube Vanced":"忽略","Google Translate":"忽略","Canva":"忽略","Life360 Family Locator":"忽略","Samsung TouchWiz Home":"忽略","Clock by Google":"忽略","Samsung Clock":"忽略","Calculator by Google":"忽略","Google Play Store":"忽略","Google Play services":"忽略","Phone by Google":"忽略","Files Go by Google":"忽略","Google Maps":"忽略","Google Drive":"忽略","Google Docs":"忽略","Google Calendar":"忽略","Google Keep":"忽略","Google Go":"忽略","Nubank":"忽略","Banco do Brasil":"忽略","Itaú":"忽略","CAIXA":"忽略","Bradesco":"忽略","Santander Brasil":"忽略","Banco Inter":"忽略","PicPay":"忽略","Mercado Pago":"忽略","C6 Bank":"忽略","PagSeguro Minha Conta":"忽略","Banco PAN":"忽略","Caixa Tem":"忽略","FGTS":"忽略","ChatGPT":"忽略","LinkedIn":"社交","Character AI":"忽略","Duolingo: Learn Languages":"忽略","Microsoft Teams":"忽略","Microsoft Outlook":"忽略","Nova Launcher":"忽略","Samsung Notes":"忽略","Samsung My Files":"忽略","Samsung Calculator":"忽略","Security":"忽略","Arrow Launcher":"忽略","Smart Launcher":"忽略","Parallel Space-Multi Accounts":"忽略","File Manager by  Flashlight Clock":"忽略","PolySpeak - AI Character Chat":"忽略","Tinder":"社交","Badoo":"社交","Adobe Reader":"忽略","Bing":"浏览器/搜索","Binance":"忽略","Glance":"忽略","Star+":"忽略","Max: Stream HBO, TV, & Movies":"长视频","Crunchyroll":"长视频","ColorNote Notepad Notes":"忽略","Unique":"忽略","OiTube":"忽略","YouTube Kids":"忽略","Uber Driver":"忽略","99 POP":"忽略","POCO Launcher 2.0 - Customize,":"忽略","Tomato - Animes e Mangás":"忽略","ibisPaint":"忽略","Android Auto":"忽略","safari":"浏览器/搜索","UC Browser":"浏览器/搜索","Vivaldi Browser":"浏览器/搜索","Pure Web Browser-Ad Blocker":"浏览器/搜索","Tor Browser":"浏览器/搜索","Ecosia Browser":"浏览器/搜索","Whats Web":"浏览器/搜索","Web Browser & Fast Explorer":"浏览器/搜索","Phoenix Browser":"浏览器/搜索","Whats Web - Whatscan for Web":"浏览器/搜索","Whats Web by 颖妮 王":"浏览器/搜索","POP Browser Lite":"浏览器/搜索","Clone WA Web Scanner - Dual WA":"浏览器/搜索","Dual WA: Web Messenger Duo":"浏览器/搜索","WhatWeb Cloner":"浏览器/搜索","Whats Web by Firehawk":"浏览器/搜索","XBrowser":"浏览器/搜索","Messenger for WhatsApp Web +":"浏览器/搜索","Whats Web Scanner - Dual WA":"浏览器/搜索","Whatscan Web - Clone App":"浏览器/搜索","WA Web":"浏览器/搜索","Whats Web by CodeKraftApps":"浏览器/搜索","Dolphin Browser":"浏览器/搜索","Max Browser-Private & Security":"浏览器/搜索","Incognito Browser - Go Private":"浏览器/搜索","Whats Web: Whatscan Web 2021":"浏览器/搜索","InBrowser Beta":"浏览器/搜索","Dual Chat - Web Scan":"浏览器/搜索","Wh-Ap Web - 2nd Msgr":"浏览器/搜索","CryptoTab Browser":"浏览器/搜索","InBrowser":"浏览器/搜索","Microsoft Edge Canary":"浏览器/搜索","Microsoft Edge Beta":"浏览器/搜索","Whatsclone - Whatscan web":"浏览器/搜索","Avast Secure Browser":"浏览器/搜索","Dual Messaging for Web App":"浏览器/搜索","Clone WA - 2Space WA Web Scan":"浏览器/搜索","Brave Browser (Beta)":"浏览器/搜索","Opera Crypto Browser":"浏览器/搜索","UC Browser Turbo":"浏览器/搜索","Armorfly Browser & Downloader - Private , Safe":"浏览器/搜索","Internet Browser":"浏览器/搜索","Web Explorer: Private Browser":"浏览器/搜索","Whatscan for Web : Whatsweb QR":"浏览器/搜索","Brave Browser (Nightly)":"浏览器/搜索","Pawxy - Fast VPN & Web Browser":"浏览器/搜索","Web Browser - Fast & Privacy":"浏览器/搜索","Web Browser & Explorer":"浏览器/搜索","Carbon: Super Fast Browser":"浏览器/搜索","Web Scan - Dual Chat":"浏览器/搜索","KUTO Mini Browser-Tiny, Fast,":"浏览器/搜索","Whats Web Scanner - Clone App":"浏览器/搜索","Web Browser - Secure Explorer":"浏览器/搜索","Hola Browser-Private&Fast web":"浏览器/搜索","Microsoft Edge Dev":"浏览器/搜索","AVG Secure Browser":"浏览器/搜索","WA Web - Dual Chat":"浏览器/搜索","Pi Browser":"浏览器/搜索","WhatsWeb & Whatscan Web":"浏览器/搜索","Super Browser: Fast & Private":"浏览器/搜索","Whats Web Scan":"浏览器/搜索","OceanHero - Search the web and":"浏览器/搜索","Private Browser":"浏览器/搜索","GB WA Latest For WhatsApp Web":"浏览器/搜索","ConferênciaWeb":"浏览器/搜索","inDrive":"生活服务","Airbnb":"生活服务","quora":"社区","Flipboard":"新闻资讯","Zero Hora":"新闻资讯","Apple Music":"音乐/音频","AnmBR":"长视频","CineVS Oficial Filmes e Séries":"长视频","ReelShort":"长视频","DramaBox - movies and drama":"长视频","XCIPTV PLAYER":"长视频","Cinegato - Strea(miau)":"长视频","Central Play Séries":"长视频","LisoFlix - Filmes & Séries":"长视频","FuzzTv":"长视频","Viki":"长视频","+SBT":"长视频","Roku":"长视频","CinexTela - Filmes em Casa":"长视频","Claro Tv+":"长视频","TLN+ : Filmes e Séries":"长视频","Lark Video Player: HD Video":"长视频","ShortTV":"长视频","IPTV Stream Player: Watch TV":"长视频","PlayPlus":"长视频","Play Animes TV":"长视频","Betteranime - Animes":"长视频","NetShort：Popular Dramas & TV":"长视频","Homura Animes":"长视频","Meu Dorama":"长视频","Dramawave":"长视频","My Family Cinema":"长视频","Iptv blink player":"长视频","9Xtream - Download & Play iPTV":"长视频","Netflix Stories: Love Is Blind":"长视频","Drama Home - Short Movies":"长视频","RapidTV":"长视频","Paramount+":"长视频","Watchug: Filmes e Séries":"长视频","SKY+: TV+Streaming":"长视频","TV Digital: tv online ao vivo":"长视频","Amenic Plus: Filmes e Séries":"长视频","YouCine -O Melhor Movie Player":"长视频","Futebol Brasileiro Ao Vivo":"长视频","Doramas Love - Doramas Online":"长视频","Univer Video: Filmes e Séries":"长视频","Cine Novelas":"长视频","AnimeTV by TEAM ATV":"长视频","MeloShort-Movies&Dramas":"长视频","SuperCine.TV - Filmes e Séries":"长视频","NinjaTV - Filmes e Séries":"长视频","Saraflix Plus: Filmes e Séries":"长视频","CinexTela - Filmes e Séries":"长视频","CineVerse V2":"长视频","Micro Drama-Watch Short&Dramas":"长视频","Sua Novela - Drama Grátis":"长视频","GoodShort":"长视频","Mi Video-Short Video Download":"忽略","Reel":"泛短视频","Kick: Live Streaming":"直播","Kako Live":"直播","Honista":"社交","Rave":"社交","happn":"社交","Connected2.me":"社交","OmeTV – Video Chat Alternative":"社交","ZEPETO":"社交","Snaplay":"社交","RandoChat App":"社交","mo.co":"社交","HelloTalk":"社交","Lado - Chat Video Party":"社交","status - sims but social media":"社交","imo":"社交","BAND":"社交","Everskies":"社交","Club Cooee":"社交","Bumble":"社交","FlashScore":"忽略","365Scores":"忽略","SofaScore":"忽略","bet365 Sports":"忽略","Partidas De Hoje":"忽略","Onefootball":"忽略","Globoesporte.com":"忽略","Manga Fox - Manga Comic Reader":"在线阅读","Moon+ Reader":"在线阅读","Women's Bible-Daily Pray":"在线阅读","FantacyStory: novels, fictions":"在线阅读","Seekee - Safe&Fast Browser":"浏览器/搜索","FordBrowser":"浏览器/搜索","Mi Browser":"浏览器/搜索","Cattery Browser":"浏览器/搜索","Chrome Dev":"浏览器/搜索","Aloha Browser":"浏览器/搜索","DuckDuckGo":"浏览器/搜索","YMusic Lite":"音乐/音频","TuneIn Radio":"音乐/音频","Pi Music Player":"音乐/音频","Offline Music Player- Weezer":"音乐/音频","Piano Magic Sky 7 - Pop Songs":"音乐/音频","Bass Equalizer":"音乐/音频","Méliuz":"电商","Prezão Free":"电商","MadeiraMadeira":"电商","Riachuelo":"电商","DAFITI":"电商","Centauro":"电商","O Boticário":"电商","C&A Brasil":"电商","BlaBlaCar":"生活服务","Rappi":"生活服务","3D Bolt Master®: Screw Master®":"游戏","My Talking Tom Friends 2":"游戏","Delta Force":"游戏","The Walking Dead: Survivors":"游戏","Story Mind":"游戏","Dominoes Master: Juego Clásico":"游戏","Wool Sort":"游戏","DDTank Origin":"游戏","Castle - Make and Play":"游戏","WePlay":"游戏","MU: Dark Epoch":"游戏","Girl Rescue: Dragon Out!":"游戏","Screwdom 3D":"游戏","Rainbow Six":"游戏","Tap Gallery: Unpuzzle Images":"游戏","Marble Match Classic":"游戏","Unscrew Nuts Sort®: Pin Puzzle":"游戏","IGAMES PSP":"游戏","Jurassic World: The Game":"游戏","Tile Park - Matching Puzzle":"游戏","Car Jam":"游戏","Craftarena":"游戏","Screw Master 3D: Pin Puzzle":"游戏","The Grand Mafia":"游戏","DC Worlds Collide":"游戏","Bubble Witch 3 Saga":"游戏","Xbox":"游戏","Steam":"游戏","Once Human":"游戏","Dessert Party":"游戏","Conquer Countries":"游戏","Squad Busters":"游戏","Ludo King":"游戏","Idle Guy Lamar":"游戏","Wood Block Puzzle":"游戏","That's My Seat - Logic Puzzle":"游戏","TDS - Tower Destiny Survive":"游戏","Goods Sort Master":"游戏","Triple Match":"游戏","Rio Rush":"游戏","Wasteland Life!":"游戏","Marvel Contest of Champions":"游戏","Craft Block World Building":"游戏","Google Play Games":"游戏","Word: Association Game":"游戏","Slayer Legend":"游戏","8 Ball Live":"游戏","Solitaire by PuzzleMaker - block puzzle":"游戏","Ragnarok X: Next Generation":"游戏","Collect Em All":"游戏","BitLife GO! - Simulation vie":"游戏","Dragons: Rise of Berk":"游戏","Rummikub":"游戏","Cube Master 3D":"游戏","DC: Dark Legion™":"游戏","Galaxy Defense: Fortress TD":"游戏","Akinator the Genie":"游戏","Unmatched EGO - Soccer Action":"游戏","Bus Out":"游戏","LUDUS・Battle Arena":"游戏","Merge Match":"游戏","Going Balls":"游戏","Mini Block Craft 2":"游戏","Nitro Nation":"游戏","HAIKYU!! FLY HIGH":"游戏","Diablo Immortal":"游戏","Pipas":"游戏","Space MobilityWare Solitaire":"游戏","Wheel of Fame - Guess words":"游戏","Identity V":"游戏","Pengu - Virtual Pets":"游戏","Idle Zombie Miner: Gold Tycoon":"游戏","Dragon Ball Z Dokkan Battle":"游戏","Office Building - Idle Tycoon":"游戏","Poly Craft":"游戏","MCPEDL for Minecraft":"游戏","Glow Fashion Idol":"游戏","Chess - Offline Board Game":"游戏","Kitty Sort: Twisted Tails":"游戏","Hole Em All: Collect Master":"游戏","Color Block Jam":"游戏","I Am Cat - original game":"游戏","Beyond":"游戏","Fashion Stylist: Dress Up Game":"游戏","Gangs Wars: Pixel Shooter RP":"游戏","Island Questaway":"游戏","GTA: San Andreas":"游戏","Merge Fellas":"游戏","Pixel Craft City":"游戏","Idle Bank Tycoon: Money Empire":"游戏","Color Goods™ - Coloring Games":"游戏","Train Miner: Idle Railway Game":"游戏","Last Stronghold: Idle Survival":"游戏","Merge Dragons":"游戏","Mario Kart Tour":"游戏","Westland Survival":"游戏","Crossword Jam":"游戏","Racing in Car 2021":"游戏","Nut Sort-Color Puzzle Games":"游戏","Traffic Frenzy: Road Jam":"游戏","MARVEL Mystic Mayhem":"游戏","Chainsaw Juice King":"游戏","The Tiger":"游戏","FreeCell Solitaire":"游戏","Bully: Anniversary Edition":"游戏","Craft Building Block World 3D":"游戏","Influencer Story: Rise to Fame":"游戏","Nut sort - Nuts Sort Puzzle":"游戏","Nonograms Katana":"游戏","Kite Fighting":"游戏","Screw Pin Jam Puzzle":"游戏","Blox World":"游戏","World Soccer Simulator 2026":"游戏","Days After: Survival Craft":"游戏","Crystal of Atlan":"游戏","Sudoku - Classic Sudoku Puzzle":"游戏","Global City":"游戏","Block Puzzle Blast":"游戏","Seat Away":"游戏","Design Show: Match 3 puzzles":"游戏","Happy Merge Home":"游戏","Metal Slug: Awakening":"游戏","Blossom Match":"游戏","Cookingdom":"游戏","PlayStation App":"游戏","Clock Goods Sort":"游戏","Poly.AI - Create AI Chat Bot":"忽略","Emochi: Unlimited Chat with AI":"忽略","Tomato - A&M":"忽略","Mobitraxx PRO":"忽略","SnapTube":"忽略","GreenTuber block ads on videos":"忽略","Chai - Chat With Ai Bots":"忽略","iCSee":"忽略","ZOOM Cloud Meetings":"忽略","DeepSeek":"忽略","Zapéx":"忽略","Calculator":"忽略","Entregador":"忽略","AutEM Mobile":"忽略","MY TIM":"忽略","Water Tracker: Water Reminder":"忽略","Talkie: Soulful AI, AI Friend":"忽略","XOS Launcher -Cool Stylish":"忽略","HiAI Chat - Make AI Friends":"忽略","FlipaClip":"忽略","Meu INSS":"忽略","Timo":"忽略","Coleta - Assist. Operações":"忽略","Carteira Digital de Trânsito":"忽略","Meu Vivo App":"忽略","Microsoft Copilot":"忽略","Google Sheets":"忽略","Antivirus Booster & Cleaner":"忽略","Hyper":"忽略","Photo Editor":"忽略","Transit Directions by Moovit":"忽略","gov.br":"忽略","Carteira de Trabalho":"忽略","MAXPLUS 3.0":"忽略","MinhaClaro":"忽略","Luzia: Your AI Assistant":"忽略","Microsoft Word":"忽略","MIUI Style Notes App":"忽略","Microsoft Office Mobile":"忽略","CamScanner":"忽略","OneDrive":"忽略","Pulsus - Agente MDM":"忽略","Strava Running and Cycling":"忽略","Mi Wallpaper Carousel":"忽略","Amazon Alexa":"忽略","TeraBox":"忽略","SPX Motorista Parceiro":"忽略","Flip Clock: World Clock":"忽略","INFO Sales Force":"忽略","Microsoft Authenticator":"忽略","Launcher iOS 16":"忽略","Radarbot":"忽略","meu pag":"忽略","Iwee":"忽略","Alarm Clock Xtreme":"忽略","Mibo Cam":"忽略","Tp-Link Tapo":"忽略","CittaMobi":"忽略","App Vault":"忽略","Wallpapers for WA":"忽略","Amazon Seller":"忽略","Ifood Para Parceiros":"忽略","Alarmy":"忽略","Samsung Pay":"忽略","Grok - AI Assistant":"忽略","LG SmartThinQ":"忽略","ZArchiver":"忽略","Cleaner":"忽略","Amazon Fire TV Remote":"忽略","Indeed Job Search":"忽略","HiOS Launcher - Fast":"忽略","Drogasil":"忽略","AIO Phone Booster":"忽略","McDonald's App":"忽略","Zé Delivery de Bebidas":"忽略","Sala do Futuro":"忽略","WebMotors":"忽略","Logistics":"忽略","PDF Reader by QR Code Scanner":"忽略","Mi File Manager":"忽略","Mangeek WiFi Passwords Map":"忽略","Instabridge":"忽略","Dual Space":"忽略","OPPO Photos":"忽略","Device Maintenance":"忽略","Calculator Lock":"忽略","Droga Raia":"忽略","Daily Weather Launcher - Radar":"忽略","Google Authenticator":"忽略","Bybit":"忽略","PhoneFixer-Memory Cleaner":"忽略","SmartThings":"忽略","Move to iOS":"忽略","Flo by Flo Health":"忽略","Azul Airlines":"忽略","Gboard":"忽略","MyTherapy: Medication Reminder":"忽略","Dropbox":"忽略","TV Connect":"忽略","Revendedor O Boticário":"忽略","V380":"忽略","Xiaomi Contacts and dialer":"忽略","Consultoria Natura":"忽略","Gallery - Album, Photo Vault":"忽略","Notepad by Sappalodapps":"忽略","Sockslite Pro - Cliente VPN":"忽略","Sleep Cycle alarm clock":"忽略","Personal Safety":"忽略","MFIT Personal":"忽略","WPS Office":"忽略","Muviz Edge: AOD & Edge Lights":"忽略","Hi.AI - Chat With AI Character":"忽略","Drink Alarms: Water Tracker":"忽略","Bradesco Saúde":"忽略","Vagas de empregos":"忽略","Google Earth":"忽略","SMARTFIT APP":"忽略","Decolar.com":"忽略","Mi Calendar":"忽略","Microsoft Excel":"忽略","Daily Forecast: Weather&Radar":"忽略","Flightradar24":"忽略","Mi Remote controller":"忽略","Launcher OS 2026: Fast & Clean":"忽略","NET":"忽略","Moto Widget":"忽略","V380 Pro":"忽略","Niagara Launcher":"忽略","Fast Notepad":"忽略","Garmin Connect":"忽略","Diamante":"忽略","Smart Life - Smart Living":"忽略","Next Fit":"忽略","2Accounts - Dual Apps":"忽略","Avast Security & Privacy":"忽略","Crushon AI":"忽略","Screenshot Editor":"忽略","QR Scanner ETG":"忽略","Easy Notes - Note Pad Notebook":"忽略","Motorola Notifications":"忽略","Hevy":"忽略","Weather - By Xiaomi":"忽略","AmpereFlow: Battery Speed, AOD":"忽略","Notion - Notes, Tasks, Wikis":"忽略","Talking Alarm Clock":"忽略","BlackNote: Dark Notes, Notepad":"忽略","Google Home":"忽略","Cx File Explorer":"忽略","Perplexity":"忽略","Hik-Connect":"忽略","SCA Aluno":"忽略","Epson iPrint":"忽略","Samsung Voice Recorder":"忽略","Autodesk SketchBook":"忽略","Google Text-to-speech":"忽略","UniMote":"忽略","App Lock - Fingerprint Lock":"忽略","AppLock":"忽略","MacroDroid - Device Automation":"忽略","GOL | Airline Tickets":"忽略","App Lock - Lock Apps":"忽略","Photo Video Maker Photo Editor":"忽略","Smart Launcher(Best free launcher,no ads)":"忽略","Livelo":"忽略","Hyde App Hider - Hide Apps":"忽略","Family Life":"忽略","Ice Cream Roll - Cool Launcher":"忽略","Claro Flex":"忽略","Circuit Route Planner":"忽略","Correios":"忽略","Health Tracker: BP Hub":"忽略","Google Family Link":"忽略","Remini":"忽略","Google Classroom":"忽略","All Video Downloader & Player":"忽略","Burger King Brasil":"忽略","Gran Cursos":"忽略","Zé Entregador":"忽略","Mercado Envíos Extra":"忽略","Lock Screen Magazine":"忽略","Slack":"忽略","Coleta - Assistente de Operações":"忽略","WhatsApp Messenger & WhatsApp Business":"社交"};
 
-async function loadRules() {
-  try {
-    const res = await fetch(REPO_RULES_URL + '?t=' + Date.now());
-    if (res.ok) {
+async function loadRules(){
+  try{
+    const res = await fetch(REPO_RULES_URL+"?t="+Date.now());
+    if(res.ok){
       const remote = await res.json();
-      rules = {...DEFAULT_RULES, ...remote};
-      setRulesStatus(true, '规则库已加载（' + Object.keys(rules).length + ' 条）');
-    } else { throw new Error('fetch failed'); }
-  } catch(e) {
+      rules = {...DEFAULT_RULES,...remote};
+      setRulesStatus(true,"规则库已加载（"+Object.keys(rules).length+" 条）");
+    } else throw new Error();
+  } catch(e){
     rules = {...DEFAULT_RULES};
-    setRulesStatus(false, '使用内置规则库（' + Object.keys(rules).length + ' 条）');
+    setRulesStatus(false,"使用内置规则库（"+Object.keys(rules).length+" 条）");
   }
   renderRulesTable();
   buildCatSelects();
 }
 
-function setRulesStatus(ok, msg) {
-  document.getElementById('rules-dot').className = 'dot' + (ok ? ' ok' : '');
-  document.getElementById('rules-status-text').textContent = msg;
+function setRulesStatus(ok,msg){
+  document.getElementById("rules-dot").className="dot"+(ok?" ok":"");
+  document.getElementById("rules-status-text").textContent=msg;
 }
 
-function buildCatUploads() {
-  const cats = [
-    {key:'social',label:'社交 (Social)'},{key:'video',label:'视频 (Photo & Video)'},
-    {key:'news',label:'新闻 (News)'},{key:'books',label:'阅读 (Books)'},
-    {key:'music',label:'音乐 (Music)'},{key:'games',label:'游戏 (Games)'},
-    {key:'shopping',label:'电商 (Shopping)'}
+function buildCatUploads(){
+  const cats=[
+    {key:"social",label:"社交 (Social)"},{key:"video",label:"视频 (Photo & Video)"},
+    {key:"news",label:"新闻 (News)"},{key:"books",label:"阅读 (Books)"},
+    {key:"music",label:"音乐 (Music)"},{key:"games",label:"游戏 (Games)"},
+    {key:"shopping",label:"电商 (Shopping)"}
   ];
-  const grid = document.getElementById('cat-upload-grid');
-  grid.innerHTML = cats.map(c => `
+  const grid=document.getElementById("cat-upload-grid");
+  grid.innerHTML=cats.map(c=>`
     <div class="upload-zone" id="uz-${c.key}" onclick="document.getElementById('f-${c.key}').click()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       <span class="uz-label" id="uz-${c.key}-label">${c.label}</span>
       <input type="file" id="f-${c.key}" accept=".csv" onchange="handleFile('${c.key}',this)">
-    </div>`).join('');
+    </div>`).join("");
 }
 
-function buildCatSelects() {
-  ['new-app-cat'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+function buildCatSelects(){
+  ["new-app-cat"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=["忽略",...CATEGORIES].map(c=>`<option value="${c}">${c}</option>`).join("");
   });
 }
 
-function handleFile(key, input) {
-  if (!input.files[0]) return;
-  filesLoaded[key] = input.files[0];
-  const label = document.getElementById(`uz-${key}-label`);
-  const zone = document.getElementById(`uz-${key}`);
-  if (label) label.textContent = input.files[0].name;
-  if (zone) zone.classList.add('has-file');
-  if (key === 'overall') {
-    document.getElementById('uz-overall-label').textContent = input.files[0].name;
-    document.getElementById('uz-overall').classList.add('has-file');
-    document.getElementById('run-btn').disabled = false;
+function handleFile(key,input){
+  if(!input.files[0]) return;
+  filesLoaded[key]=input.files[0];
+  const label=document.getElementById(`uz-${key}-label`);
+  const zone=document.getElementById(`uz-${key}`);
+  if(label) label.textContent=input.files[0].name;
+  if(zone) zone.classList.add("has-file");
+  if(key==="overall"){
+    document.getElementById("run-btn").disabled=false;
   }
 }
 
-function parseCSVFile(file) {
-  return new Promise((res, rej) => {
-    Papa.parse(file, { skipEmptyLines: true, complete: r => res(r.data), error: e => rej(e) });
+function parseCSVFile(file){
+  return new Promise((res,rej)=>{
+    Papa.parse(file,{skipEmptyLines:true,complete:r=>res(r.data),error:e=>rej(e)});
   });
 }
 
-function findHeaderRow(rows) {
-  for (let i = 0; i < rows.length; i++) {
-    if (rows[i].some(c => c.includes('Unified App Name') || c === 'Total Time')) return i;
+function findHeaderRow(rows){
+  for(let i=0;i<rows.length;i++){
+    if(rows[i].some(c=>c.includes("Unified App Name")||c==="Total Time")) return i;
   }
   return -1;
 }
 
-async function parseOverall(file) {
-  const rows = await parseCSVFile(file);
-  const hi = findHeaderRow(rows);
-  if (hi < 0) throw new Error('找不到标题行，请确认是 data.ai Overall CSV');
-  const h = rows[hi];
-  const nameIdx = h.findIndex(c => c.includes('Unified App Name'));
-  const timeIdx = h.findIndex(c => c === 'Total Time');
-  const rankIdx = h.findIndex(c => c === 'Total Time Rank' && !c.includes('Change'));
-  const data = [];
-  for (let i = hi + 1; i < rows.length; i++) {
-    const r = rows[i];
-    const name = r[nameIdx]?.trim();
-    const t = parseFloat(r[timeIdx]);
-    const rank = parseInt(r[rankIdx]) || 999;
-    if (name && !isNaN(t) && t > 0) data.push({ name, time: t / 1e9, rank });
+async function parseOverall(file){
+  const rows=await parseCSVFile(file);
+  const hi=findHeaderRow(rows);
+  if(hi<0) throw new Error("找不到标题行，请确认是 data.ai Overall CSV");
+  const h=rows[hi];
+  const nameIdx=h.findIndex(c=>c.includes("Unified App Name"));
+  const timeIdx=h.findIndex(c=>c==="Total Time");
+  const rankIdx=h.findIndex(c=>c==="Total Time Rank"&&!c.includes("Change"));
+  const data=[];
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i];
+    const name=r[nameIdx]?.trim();
+    const t=parseFloat(r[timeIdx]);
+    const rank=parseInt(r[rankIdx])||999;
+    if(name&&!isNaN(t)&&(t>=0)) data.push({name,time:t/1e9,rank});
   }
   return data;
 }
 
-async function parseCatFile(file, catKey) {
-  const catMap = { social:'社交', video:'泛短视频', news:'新闻资讯', books:'在线阅读', music:'音乐/音频', games:'游戏', shopping:'电商' };
-  const rows = await parseCSVFile(file);
-  const hi = findHeaderRow(rows);
-  if (hi < 0) return { cat: catMap[catKey], data: {} };
-  const h = rows[hi];
-  const nameIdx = h.findIndex(c => c.includes('Unified App Name'));
-  const timeIdx = h.findIndex(c => c === 'Total Time');
-  const result = {};
-  for (let i = hi + 1; i < rows.length; i++) {
-    const r = rows[i];
-    const name = r[nameIdx]?.trim();
-    const t = parseFloat(r[timeIdx]);
-    if (name && !isNaN(t)) result[name] = t / 1e9;
+async function parseCatFile(file,catKey){
+  const rows=await parseCSVFile(file);
+  const hi=findHeaderRow(rows);
+  if(hi<0) return {cat:CSV_CAT_MAP[catKey],data:{}};
+  const h=rows[hi];
+  const nameIdx=h.findIndex(c=>c.includes("Unified App Name"));
+  const timeIdx=h.findIndex(c=>c==="Total Time");
+  const result={};
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i];
+    const name=r[nameIdx]?.trim();
+    const t=parseFloat(r[timeIdx]);
+    if(name&&!isNaN(t)) result[name]=t/1e9;
   }
-  return { cat: catMap[catKey], data: result };
+  return{cat:CSV_CAT_MAP[catKey],data:result};
 }
 
-function log(msg, type = 'info') {
-  const box = document.getElementById('log-box');
-  const el = document.createElement('div');
-  el.className = type;
-  const prefix = type === 'ok' ? '✓ ' : type === 'warn' ? '⚠ ' : type === 'err' ? '✗ ' : '  ';
-  el.textContent = prefix + msg;
+function log(msg,type="info"){
+  const box=document.getElementById("log-box");
+  const el=document.createElement("div");
+  el.className=type;
+  el.textContent=(type==="ok"?"✓ ":type==="warn"?"⚠ ":type==="err"?"✗ ":"  ")+msg;
   box.appendChild(el);
-  box.scrollTop = box.scrollHeight;
+  box.scrollTop=box.scrollHeight;
 }
 
-async function runPipeline() {
-  document.getElementById('log-card').classList.remove('hidden');
-  document.getElementById('results-card').classList.add('hidden');
-  document.getElementById('log-box').innerHTML = '';
-  document.getElementById('run-btn').disabled = true;
-  const month = document.getElementById('month-input').value || '未知月份';
+async function runPipeline(){
+  document.getElementById("log-card").classList.remove("hidden");
+  document.getElementById("results-card").classList.add("hidden");
+  document.getElementById("log-box").innerHTML="";
+  document.getElementById("run-btn").disabled=true;
+  const month=document.getElementById("month-input").value||"未知月份";
 
-  try {
-    log('读取 Overall CSV...');
-    let overall = await parseOverall(filesLoaded['overall']);
-    log('读取 ' + overall.length + ' 条记录', 'ok');
+  try{
+    // ── Step 1: 读取 Overall CSV ──
+    log("读取 Overall CSV...");
+    let overall=await parseOverall(filesLoaded["overall"]);
+    log("读取 "+overall.length+" 条记录","ok");
 
-    log('合并 WhatsApp Messenger + WhatsApp Business...');
-    const waMsg = overall.find(r => r.name === 'WhatsApp Messenger');
-    const waBiz = overall.find(r => r.name === 'WhatsApp Business');
-    if (waMsg && waBiz) {
-      waMsg.name = 'WhatsApp Messenger & WhatsApp Business';
-      waMsg.time += waBiz.time;
-      overall = overall.filter(r => r.name !== 'WhatsApp Business');
-      log('合并后时长：' + waMsg.time.toFixed(3) + ' 十亿分钟', 'ok');
-    } else if (waMsg) {
-      waMsg.name = 'WhatsApp Messenger & WhatsApp Business';
-      log('未找到 WhatsApp Business，仅使用 Messenger 时长', 'warn');
+    // ── Step 2: 合并 WhatsApp ──
+    log("合并 WhatsApp Messenger + WhatsApp Business...");
+    const waMsg=overall.find(r=>r.name==="WhatsApp Messenger");
+    const waBiz=overall.find(r=>r.name==="WhatsApp Business");
+    if(waMsg&&waBiz){
+      waMsg.name="WhatsApp Messenger & WhatsApp Business";
+      waMsg.time+=waBiz.time;
+      overall=overall.filter(r=>r.name!=="WhatsApp Business");
+      log("合并后时长："+waMsg.time.toFixed(3)+" 十亿分钟","ok");
+    } else if(waMsg){
+      waMsg.name="WhatsApp Messenger & WhatsApp Business";
+      log("未找到 WhatsApp Business，仅使用 Messenger","warn");
     } else {
-      log('未找到 WhatsApp，跳过合并', 'warn');
+      log("未找到 WhatsApp，跳过合并","warn");
     }
+    // 更新规则库里的合并名
+    rules["WhatsApp Messenger & WhatsApp Business"]="社交";
 
-    const tiktokVal = parseFloat(document.getElementById('tiktok-val').value);
-    const kwaiVal = parseFloat(document.getElementById('kwai-val').value);
-    if (!isNaN(tiktokVal)) {
-      const t = overall.find(r => r.name === 'TikTok');
-      if (t) { t.time = tiktokVal; log('TikTok 手动覆盖：' + tiktokVal.toFixed(3), 'ok'); }
-    } else { log('TikTok 未覆盖，使用 data.ai 原始值', 'warn'); }
-    if (!isNaN(kwaiVal)) {
-      const k = overall.find(r => r.name === 'Kwai');
-      if (k) { k.time = kwaiVal; log('Kwai 手动覆盖：' + kwaiVal.toFixed(3), 'ok'); }
-    } else { log('Kwai 未覆盖，使用 data.ai 原始值', 'warn'); }
+    // ── Step 3: 手动覆盖 TikTok / Kwai ──
+    const tiktokVal=parseFloat(document.getElementById("tiktok-val").value);
+    const kwaiVal=parseFloat(document.getElementById("kwai-val").value);
+    if(!isNaN(tiktokVal)){
+      const t=overall.find(r=>r.name==="TikTok");
+      if(t){t.time=tiktokVal;log("TikTok 手动覆盖："+tiktokVal.toFixed(3),"ok");}
+    } else log("TikTok 未覆盖，使用 data.ai 原始值","warn");
+    if(!isNaN(kwaiVal)){
+      const k=overall.find(r=>r.name==="Kwai");
+      if(k){k.time=kwaiVal;log("Kwai 手动覆盖："+kwaiVal.toFixed(3),"ok");}
+    } else log("Kwai 未覆盖，使用 data.ai 原始值","warn");
 
-    const catData = {};
-    const catKeys = ['social','video','news','books','music','games','shopping'];
-    for (const k of catKeys) {
-      if (filesLoaded[k]) {
-        const res = await parseCatFile(filesLoaded[k], k);
-        catData[res.cat] = res.data;
-        log('分类 CSV 已加载：' + k + '（' + Object.keys(res.data).length + ' 条）', 'ok');
+    // ── Step 4: 读取分类别 CSV ──
+    const catData={};
+    for(const k of ["social","video","news","books","music","games","shopping"]){
+      if(filesLoaded[k]){
+        const res=await parseCatFile(filesLoaded[k],k);
+        catData[res.cat]=res.data;
+        log("分类 CSV 已加载："+k+"（"+Object.keys(res.data).length+" 条）","ok");
       }
     }
-    const hasCatData = Object.keys(catData).length > 0;
-    if (!hasCatData) log('未上传分类别 CSV，合计使用统一时长近似（略有偏差）', 'warn');
 
-    log('应用分类规则...');
-    const catGroups = {};
-    CATEGORIES.forEach(c => catGroups[c] = []);
-    const unknown = [];
+    // ── Step 5: 分类 ──
+    log("应用分类规则...");
+    const catGroups={};
+    CATEGORIES.forEach(c=>catGroups[c]=[]);
+    const unknown=[];
 
-    // 先把 Likee 等 Overall 时长极小但应在分类里的 App 的时长补成分类CSV里的值
-    // 规则：如果 App 在规则库里有分类，但 Overall 时长 < 0.01，
-    //       且上传了对应分类CSV，则用分类CSV里的时长替代
-    for (const item of overall) {
-      const cat = rules[item.name];
-      if (!cat || cat === '忽略') continue;
-      // 如果时长极小，尝试从分类CSV补充
-      if (item.time < 0.01) {
-        for (const [csvCat, csvData] of Object.entries(catData)) {
-          if (csvData[item.name] !== undefined) {
-            item.time = csvData[item.name] / 1e9;
-            break;
+    for(const item of overall){
+      const cat=rules[item.name];
+      if(cat==="忽略") continue;
+      else if(cat&&catGroups[cat]) catGroups[cat].push(item);
+      else if(!cat&&item.time>1.0) unknown.push(item);
+    }
+    if(unknown.length) log("发现 "+unknown.length+" 个未分类 App（时长 > 1.0 十亿分钟）","warn");
+
+    // ── Step 6: 计算各分类合计和 Top N ──
+    log("计算各分类合计...");
+    const result={};
+    let grandTotal=0;
+
+    for(const cat of CATEGORIES){
+      const topN=TOP_N_BY_CAT[cat]||5;
+      // Top N 始终按 Overall 统一时长排序
+      const items=catGroups[cat].sort((a,b)=>b.time-a.time);
+      let topApps=items.slice(0,topN);
+
+      let catTotal;
+      const source=CAT_TOTAL_SOURCE[cat];
+
+      // 判断是否有本分类的 CSV 数据（不管 CAT_TOTAL_SOURCE 设定，有 CSV 就优先用）
+      const hasCatCSV = !!catData[cat];
+
+      if(hasCatCSV){
+        // ── 有分类别 CSV：用应用时长排序 + 应用时长合计 ──
+        const appTimesInCsv = catData[cat];
+
+        // 重新按应用时长排序本分类的 App
+        const itemsWithCsvTime = catGroups[cat].map(item => ({
+          ...item,
+          displayTime: appTimesInCsv[item.name] !== undefined
+            ? appTimesInCsv[item.name]  // 用应用时长展示
+            : item.time                  // 分类CSV里没有则用统一时长
+        })).sort((a,b) => b.displayTime - a.displayTime);
+
+        topApps = itemsWithCsvTime.slice(0, topN).map(item => ({
+          name: item.name,
+          time: item.displayTime,
+          rank: item.rank
+        }));
+
+        // 合计：分类CSV里归属本分类的App的应用时长之和
+        let rawTotal = 0;
+        const countedApps = new Set();
+        for(const [appName, appTime] of Object.entries(appTimesInCsv)){
+          const appRule = rules[appName];
+          if(!appRule || appRule === "忽略") continue;
+          if(appRule === cat){
+            rawTotal += appTime;
+            countedApps.add(appName);
           }
         }
-      }
-    }
-
-    for (const item of overall) {
-      const cat = rules[item.name];
-      if (cat === '忽略') {
-        continue;
-      } else if (cat && catGroups[cat]) {
-        catGroups[cat].push(item);
-      } else if (!cat && item.time > 1.0) {
-        unknown.push(item);
-      }
-    }
-    if (unknown.length) log('发现 ' + unknown.length + ' 个未分类 App（时长 > 1.0 十亿分钟）', 'warn');
-
-    log('计算各分类 Top5/6 和合计...');
-    const result = {};
-    let grandTotal = 0;
-    const TOP_N_BY_CAT = {'社交': 6};
-    const DEFAULT_TOP_N = 5;
-
-    for (const cat of CATEGORIES) {
-      const topN = TOP_N_BY_CAT[cat] || DEFAULT_TOP_N;
-      const items = catGroups[cat].sort((a, b) => b.time - a.time);
-      const top5 = items.slice(0, topN);
-      let catTotal;
-
-      if (hasCatData && catData[cat]) {
-        // 正确逻辑（对齐原始模板）：
-        // 合计 = 所有最终归属本分类的 App 的「统一时长」之和
-        // 即：遍历 overall，找出规则库里归属本分类的 App，用统一时长加总
-        // 这样可以正确处理：Social CSV 里的 Instagram 被重新归到泛短视频，
-        // 就不会再计入社交合计
-        let rawTotal = 0;
-        for (const item of overall) {
-          const appRule = rules[item.name];
-          if (appRule === cat) {
+        // 补充：本分类App不在CSV里（如WhatsApp合并名），用统一时长
+        for(const item of overall){
+          if(rules[item.name] === cat && !countedApps.has(item.name)){
             rawTotal += item.time;
           }
         }
-        catTotal = Math.max(rawTotal, top5.reduce((s, i) => s + i.time, 0));
+        catTotal = Math.max(rawTotal, topApps.reduce((s,i) => s+i.time, 0));
+
       } else {
-        catTotal = items.reduce((s, i) => s + i.time, 0);
+        // ── 无分类别 CSV：用统一时长排序 + 统一时长合计 ──
+        topApps = items.slice(0, topN);
+        catTotal = items.reduce((s,i) => s+i.time, 0);
       }
 
-      const othersTime = Math.max(0, catTotal - top5.reduce((s, i) => s + i.time, 0));
-      result[cat] = { total: catTotal, top5, others: othersTime };
-      grandTotal += catTotal;
+      const othersTime=Math.max(0,catTotal-topApps.reduce((s,i)=>s+i.time,0));
+      result[cat]={total:catTotal,top5:topApps,others:othersTime};
+      grandTotal+=catTotal;
     }
 
-    const kwaiItem = overall.find(r => r.name === 'Kwai');
-    const kwaiRank = kwaiItem ? kwaiItem.rank : '—';
-
-    log('完成，月总时长：' + grandTotal.toFixed(1) + ' 十亿分钟', 'ok');
-    processedData = { result, unknown, grandTotal, month, kwaiRank };
+    const kwaiItem=overall.find(r=>r.name==="Kwai");
+    const kwaiRank=kwaiItem?kwaiItem.rank:"—";
+    log("完成，月总时长："+grandTotal.toFixed(1)+" 十亿分钟","ok");
+    processedData={result,unknown,grandTotal,month,kwaiRank};
     renderResults(processedData);
-    document.getElementById('results-card').classList.remove('hidden');
+    document.getElementById("results-card").classList.remove("hidden");
 
-  } catch (e) {
-    log('错误：' + e.message, 'err');
+  } catch(e){
+    log("错误："+e.message,"err");
   }
-  document.getElementById('run-btn').disabled = false;
+  document.getElementById("run-btn").disabled=false;
 }
 
-function renderResults({ result, unknown, grandTotal, month, kwaiRank }) {
-  document.getElementById('s-total').textContent = grandTotal.toFixed(0);
-  document.getElementById('s-kwai-rank').textContent = 'No.' + kwaiRank;
-  document.getElementById('s-unknown').textContent = unknown.length;
-  document.getElementById('unknown-badge').textContent = unknown.length > 0 ? '(' + unknown.length + ')' : '';
+function renderResults({result,unknown,grandTotal,month,kwaiRank}){
+  document.getElementById("s-total").textContent=grandTotal.toFixed(0);
+  document.getElementById("s-kwai-rank").textContent="No."+kwaiRank;
+  document.getElementById("s-unknown").textContent=unknown.length;
+  document.getElementById("unknown-badge").textContent=unknown.length>0?"("+unknown.length+")":"";
 
-  const tbody = document.getElementById('results-tbody');
-  let html = '';
-  for (const cat of CATEGORIES) {
-    const { total, top5, others } = result[cat];
-    const pct = grandTotal > 0 ? (total / grandTotal * 100).toFixed(1) : '0.0';
-    html += `<tr class="cat-row"><td>${cat}</td><td class="num">${total.toFixed(2)}</td><td class="num">${pct}%</td></tr>`;
-    for (const item of top5) {
-      html += `<tr><td class="indent">${item.name}</td><td class="num">${item.time.toFixed(2)}</td><td class="num">${(item.time / grandTotal * 100).toFixed(1)}%</td></tr>`;
+  const tbody=document.getElementById("results-tbody");
+  let html="";
+  for(const cat of CATEGORIES){
+    const{total,top5,others}=result[cat];
+    const pct=grandTotal>0?(total/grandTotal*100).toFixed(1):"0.0";
+    html+=`<tr class="cat-row"><td>${cat}</td><td class="num">${total.toFixed(2)}</td><td class="num">${pct}%</td></tr>`;
+    for(const item of top5){
+      html+=`<tr><td class="indent">${item.name}</td><td class="num">${item.time.toFixed(3)}</td><td class="num">${(item.time/grandTotal*100).toFixed(1)}%</td></tr>`;
     }
-    if (others > 0.01) {
-      html += `<tr><td class="indent muted">其他</td><td class="num muted">${others.toFixed(2)}</td><td></td></tr>`;
+    if(others>0.001){
+      html+=`<tr><td class="indent muted">其他</td><td class="num muted">${others.toFixed(2)}</td><td></td></tr>`;
     }
   }
-  tbody.innerHTML = html;
+  tbody.innerHTML=html;
 
-  const ul = document.getElementById('unknown-list');
-  if (unknown.length === 0) {
-    ul.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:8px 0">所有 App 均已分类</div>';
+  const ul=document.getElementById("unknown-list");
+  if(unknown.length===0){
+    ul.innerHTML='<div style="font-size:13px;color:var(--text2);padding:8px 0">所有 App 均已分类</div>';
   } else {
-    const opts = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
-    ul.innerHTML = unknown.slice(0, 60).map(item => `
+    const opts=["忽略",...CATEGORIES].map(c=>`<option value="${c}">${c}</option>`).join("");
+    ul.innerHTML=unknown.slice(0,60).map(item=>`
       <div class="unknown-item">
         <span class="name">${item.name}</span>
         <span class="time">${item.time.toFixed(2)} 十亿分钟</span>
-        <select data-app="${item.name.replace(/"/g,'&quot;')}">
+        <select data-app="${item.name.replace(/"/g,"&quot;")}">
           <option value="">— 选择分类 —</option>
           ${opts}
         </select>
-      </div>`).join('');
+      </div>`).join("");
   }
-
   renderRulesTable();
 }
 
-function renderRulesTable() {
-  const tbody = document.getElementById('rules-tbody');
-  const entries = Object.entries(rules).sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]));
-  tbody.innerHTML = entries.map(([app, cat]) =>
-    `<tr><td>${app}</td><td>${cat}</td><td><button class="btn sm danger" onclick="deleteRule(this)" data-app="${app.replace(/"/g,'&quot;')}">删除</button></td></tr>`
-  ).join('');
+function renderRulesTable(){
+  const tbody=document.getElementById("rules-tbody");
+  const entries=Object.entries(rules).sort((a,b)=>a[1].localeCompare(b[1])||a[0].localeCompare(b[0]));
+  tbody.innerHTML=entries.map(([app,cat])=>
+    `<tr><td>${app}</td><td>${cat}</td><td><button class="btn sm danger" onclick="deleteRule(this)" data-app="${app.replace(/"/g,"&quot;")}">删除</button></td></tr>`
+  ).join("");
 }
 
-function deleteRule(btn) {
-  const app = btn.dataset.app;
-  delete rules[app];
+function deleteRule(btn){delete rules[btn.dataset.app];renderRulesTable();}
+
+function addRule(){
+  const name=document.getElementById("new-app-name").value.trim();
+  const cat=document.getElementById("new-app-cat").value;
+  if(!name||!cat) return;
+  rules[name]=cat;
+  document.getElementById("new-app-name").value="";
   renderRulesTable();
 }
 
-function addRule() {
-  const name = document.getElementById('new-app-name').value.trim();
-  const cat = document.getElementById('new-app-cat').value;
-  if (!name || !cat) return;
-  rules[name] = cat;
-  document.getElementById('new-app-name').value = '';
-  renderRulesTable();
-}
-
-function saveUnknownRules() {
-  const sels = document.querySelectorAll('#unknown-list select');
-  let added = 0;
-  sels.forEach(sel => {
-    const app = sel.dataset.app;
-    const cat = sel.value;
-    if (cat) { rules[app] = cat; added++; }
+function saveUnknownRules(){
+  const sels=document.querySelectorAll("#unknown-list select");
+  let added=0;
+  sels.forEach(sel=>{
+    const app=sel.dataset.app;
+    const cat=sel.value;
+    if(cat){rules[app]=cat;added++;}
   });
-  if (added > 0) {
+  if(added>0){
     renderRulesTable();
     downloadRulesJSON();
     alert(`已为 ${added} 个 App 设置分类。\n规则库 JSON 已下载，请提交到 GitHub 仓库根目录以永久保存。`);
-  } else {
-    alert('请先为 App 选择分类');
-  }
+  } else alert("请先为 App 选择分类");
 }
 
-function downloadRulesJSON() {
-  const blob = new Blob([JSON.stringify(rules, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'classification_rules.json';
-  a.click();
+function downloadRulesJSON(){
+  const blob=new Blob([JSON.stringify(rules,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="classification_rules.json";a.click();
   URL.revokeObjectURL(url);
 }
 
-function downloadCSV() {
-  if (!processedData) return;
-  const { result, grandTotal, month } = processedData;
-  let csv = '月份,分类,App,时长（十亿分钟）,全局占比\n';
-  for (const cat of CATEGORIES) {
-    const { total, top5, others } = result[cat];
-    csv += `${month},${cat},合计,${total.toFixed(3)},${(total / grandTotal * 100).toFixed(2)}%\n`;
-    for (const item of top5) {
-      csv += `${month},${cat},"${item.name}",${item.time.toFixed(3)},${(item.time / grandTotal * 100).toFixed(2)}%\n`;
+function downloadCSV(){
+  if(!processedData) return;
+  const{result,grandTotal,month}=processedData;
+  let csv="月份,分类,App,时长（十亿分钟）,全局占比\n";
+  for(const cat of CATEGORIES){
+    const{total,top5,others}=result[cat];
+    csv+=`${month},${cat},合计,${total.toFixed(3)},${(total/grandTotal*100).toFixed(2)}%\n`;
+    for(const item of top5){
+      csv+=`${month},${cat},"${item.name}",${item.time.toFixed(3)},${(item.time/grandTotal*100).toFixed(2)}%\n`;
     }
-    if (others > 0.01) csv += `${month},${cat},其他,${others.toFixed(3)},\n`;
+    if(others>0.001) csv+=`${month},${cat},其他,${others.toFixed(3)},\n`;
   }
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `巴西数据底稿_${month}.csv`;
-  a.click();
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=`巴西数据底稿_${month}.csv`;a.click();
   URL.revokeObjectURL(url);
 }
 
-function downloadExcel() {
-  if (!processedData) return;
-  const { result, grandTotal, month, unknown } = processedData;
-  const wb = XLSX.utils.book_new();
+function downloadExcel(){
+  if(!processedData) return;
+  const{result,grandTotal,month,unknown}=processedData;
+  const wb=XLSX.utils.book_new();
 
-  const header = ['', ...CATEGORIES];
-  const totals = ['合计（十亿分钟）', ...CATEGORIES.map(c => +result[c].total.toFixed(3))];
-  const pcts = ['合计占比', ...CATEGORIES.map(c => +((result[c].total / grandTotal * 100).toFixed(2)))];
-  const rows = [header, totals, pcts];
+  // ── Sheet1：格式完全对齐最终版 ──
+  // 行结构：
+  // 行1: 空, 社交, 泛短视频, ...（分类表头）
+  // 行2: 合计时长数字
+  // 行3+: A列=App名，对应分类列=时长（稀疏矩阵，分类间空行分隔）
+  // 最后: 其他行
 
-  const maxRows = Math.max(...CATEGORIES.map(c => result[c].top5.length));
-  for (let i = 0; i < maxRows; i++) {
-    const row = ['Top' + (i + 1)];
-    for (const cat of CATEGORIES) {
-      const item = result[cat].top5[i];
-      row.push(item ? item.name : '');
-    }
-    rows.push(row);
-    const timeRow = [''];
-    for (const cat of CATEGORIES) {
-      const item = result[cat].top5[i];
-      timeRow.push(item ? +item.time.toFixed(3) : '');
-    }
-    rows.push(timeRow);
-  }
+  const catCol = {}; // 分类 → 列索引（0-based，A列=0）
+  CATEGORIES.forEach((c,i) => catCol[c] = i+1);
 
-  const othersRow = ['其他', ...CATEGORIES.map(c => +result[c].others.toFixed(3))];
-  rows.push(othersRow);
-  rows.push([]);
-  rows.push(['月份', month]);
-  rows.push(['月总时长（十亿分钟）', +grandTotal.toFixed(2)]);
-  rows.push(['生成时间', new Date().toLocaleString('zh-CN')]);
+  // 收集所有 App 行（按分类顺序，分类间插空行）
+  // 每个元素: {appName, cat, time} 或 null（空行）
+  const appRows = [];
+  CATEGORIES.forEach(cat => {
+    const {top5} = result[cat];
+    top5.forEach(item => appRows.push({appName:item.name, cat, time:item.time}));
+    appRows.push(null); // 分类间空行
+  });
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 16 }, ...CATEGORIES.map(() => ({ wch: 16 }))];
-  XLSX.utils.book_append_sheet(wb, ws, month.replace(/-/g, '_'));
+  const totalRows = 2 + appRows.length + 1; // 表头+合计+app行+其他行
+  const totalCols = CATEGORIES.length + 1;
 
-  if (unknown && unknown.length > 0) {
-    const unknownRows = [['未分类 App', '时长（十亿分钟）']];
-    for (const item of unknown) unknownRows.push([item.name, +item.time.toFixed(3)]);
-    const ws2 = XLSX.utils.aoa_to_sheet(unknownRows);
-    ws2['!cols'] = [{ wch: 50 }, { wch: 20 }];
-    XLSX.utils.book_append_sheet(wb, ws2, '未分类App');
+  // 构建二维数组
+  const data = Array.from({length:totalRows}, () => Array(totalCols).fill(null));
+
+  // 行1：分类表头
+  CATEGORIES.forEach((c,i) => { data[0][i+1] = c; });
+
+  // 行2：合计
+  CATEGORIES.forEach((c,i) => { data[1][i+1] = +result[c].total.toFixed(2); });
+
+  // 行3+：App 数据
+  appRows.forEach((item, idx) => {
+    if(item === null) return; // 空行保持 null
+    const row = idx + 2;
+    data[row][0] = item.appName;
+    data[row][catCol[item.cat]] = +item.time.toFixed(2);
+  });
+
+  // 最后一行：其他
+  const lastRow = totalRows - 1;
+  CATEGORIES.forEach((c,i) => {
+    const v = result[c].others;
+    if(v > 0.001) data[lastRow][i+1] = +v.toFixed(2);
+  });
+  data[lastRow][0] = "其他";
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+
+  // 列宽
+  ws["!cols"] = [{wch:28}, ...CATEGORIES.map(()=>({wch:14}))];
+
+  // 字体颜色：红色 App（WhatsApp合并、TikTok、Kwai）
+  const redApps = new Set([
+    "WhatsApp Messenger & WhatsApp Business",
+    "TikTok","Kwai"
+  ]);
+
+  // 遍历所有单元格，给红色 App 设置红色字体
+  appRows.forEach((item, idx) => {
+    if(!item || !redApps.has(item.appName)) return;
+    const row = idx + 2;
+    const cellRef = XLSX.utils.encode_cell({r:row, c:0});
+    if(!ws[cellRef]) ws[cellRef] = {v:item.appName, t:"s"};
+    ws[cellRef].s = {font:{color:{rgb:"FF0000"}, bold:true}};
+  });
+
+  // 表头行样式（分类名加粗）
+  CATEGORIES.forEach((c,i) => {
+    const cellRef = XLSX.utils.encode_cell({r:0, c:i+1});
+    if(!ws[cellRef]) ws[cellRef] = {v:c, t:"s"};
+    ws[cellRef].s = {font:{bold:true}};
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, month.replace(/-/g,"_"));
+
+  // ── Sheet2：未分类 App ──
+  if(unknown && unknown.length > 0){
+    const ur = [["未分类 App","时长（十亿分钟）"]];
+    for(const item of unknown) ur.push([item.name, +item.time.toFixed(3)]);
+    const ws2 = XLSX.utils.aoa_to_sheet(ur);
+    ws2["!cols"] = [{wch:50},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, ws2, "未分类App");
   }
 
   XLSX.writeFile(wb, `巴西数据底稿_${month}.xlsx`);
 }
 
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', ['data', 'unknown', 'rules'][i] === name);
+function switchTab(name){
+  document.querySelectorAll(".tab").forEach((t,i)=>{
+    t.classList.toggle("active",["data","unknown","rules"][i]===name);
   });
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+  document.getElementById("tab-"+name).classList.add("active");
 }
 
-document.getElementById('month-input').value = new Date().toISOString().slice(0, 7);
+document.getElementById("month-input").value=new Date().toISOString().slice(0,7);
 buildCatUploads();
 loadRules();
 </script>
