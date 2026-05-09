@@ -444,30 +444,40 @@ async function runPipeline(){
 
     for(const cat of CATEGORIES){
       const topN=TOP_N_BY_CAT[cat]||5;
-      const items=[...catGroups[cat]].sort((a,b)=>b.time-a.time);
-
-      // 合计：所有 App 的 Overall/覆盖时长之和
-      const catTotal=items.reduce((s,item)=>s+item.time,0);
-
-      // Top N（按 Overall/覆盖时长排序）
-      const topItems=items.slice(0,topN);
-
-      // 计算每个 Top N App 的显示时长
       const csvTimes=catCsvTimes[cat]||{};
+      const hasCsv=Object.keys(csvTimes).length>0;
+
+      // 合计：所有 App 的 Overall/覆盖时长之和（不受 CSV/DISPLAY_OVERRIDES 影响）
+      const catTotal=catGroups[cat].reduce((s,item)=>s+item.time,0);
+
+      // 排序：有分类CSV时按CSV时长排序（更准确）；否则按Overall时长
+      const sorted=[...catGroups[cat]].sort((a,b)=>{
+        if(hasCsv){
+          const aT=csvTimes[a.name]!==undefined?csvTimes[a.name]:a.time;
+          const bT=csvTimes[b.name]!==undefined?csvTimes[b.name]:b.time;
+          return bT-aT;
+        }
+        return b.time-a.time;
+      });
+
+      // Top N（按上方排序结果取前N）
+      const topItems=sorted.slice(0,topN);
+
+      // 计算每个 Top N App 的显示时长（CSV > DISPLAY_OVERRIDES > Overall）
       const top5=topItems.map(item=>{
         let displayTime;
         if(csvTimes[item.name]!==undefined){
-          displayTime=csvTimes[item.name];              // 分类别CSV时长（最优先）
+          displayTime=csvTimes[item.name];
         } else if(DISPLAY_OVERRIDES[item.name]!==undefined){
-          displayTime=DISPLAY_OVERRIDES[item.name]/1e9; // 锁定显示值
+          displayTime=DISPLAY_OVERRIDES[item.name]/1e9;
         } else {
-          displayTime=item.time;                        // Overall时长（兜底）
+          displayTime=item.time;
         }
         return{name:item.name,displayTime,rank:item.rank};
       });
 
-      // 其他 = 合计 - Top5 显示时长之和
-      const othersTime=Math.max(0,catTotal-top5.reduce((s,a)=>s+a.displayTime,0));
+      // 其他 = 合计 - Top5 的 Overall 基准时长之和（不用显示时长，避免因CSV/锁定值偏差导致其他异常）
+      const othersTime=Math.max(0,catTotal-topItems.reduce((s,item)=>s+item.time,0));
       result[cat]={total:catTotal,top5,others:othersTime};
       grandTotal+=catTotal;
     }
