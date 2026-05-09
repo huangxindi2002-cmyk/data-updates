@@ -438,6 +438,23 @@ async function runPipeline() {
     CATEGORIES.forEach(c => catGroups[c] = []);
     const unknown = [];
 
+    // 先把 Likee 等 Overall 时长极小但应在分类里的 App 的时长补成分类CSV里的值
+    // 规则：如果 App 在规则库里有分类，但 Overall 时长 < 0.01，
+    //       且上传了对应分类CSV，则用分类CSV里的时长替代
+    for (const item of overall) {
+      const cat = rules[item.name];
+      if (!cat || cat === '忽略') continue;
+      // 如果时长极小，尝试从分类CSV补充
+      if (item.time < 0.01) {
+        for (const [csvCat, csvData] of Object.entries(catData)) {
+          if (csvData[item.name] !== undefined) {
+            item.time = csvData[item.name] / 1e9;
+            break;
+          }
+        }
+      }
+    }
+
     for (const item of overall) {
       const cat = rules[item.name];
       if (cat === '忽略') {
@@ -448,7 +465,7 @@ async function runPipeline() {
         unknown.push(item);
       }
     }
-    if (unknown.length) log('发现 ' + unknown.length + ' 个未分类 App（时长 > 0.05 十亿分钟）', 'warn');
+    if (unknown.length) log('发现 ' + unknown.length + ' 个未分类 App（时长 > 1.0 十亿分钟）', 'warn');
 
     log('计算各分类 Top5/6 和合计...');
     const result = {};
@@ -463,29 +480,15 @@ async function runPipeline() {
       let catTotal;
 
       if (hasCatData && catData[cat]) {
-        const appTimes = catData[cat];
-        // 从分类CSV合计里减去：
-        // 1. 规则库里标为"忽略"的App
-        // 2. 规则库里归属其他分类的App（它们会用统一时长替换应用时长）
+        // 正确逻辑（对齐原始模板）：
+        // 合计 = 所有最终归属本分类的 App 的「统一时长」之和
+        // 即：遍历 overall，找出规则库里归属本分类的 App，用统一时长加总
+        // 这样可以正确处理：Social CSV 里的 Instagram 被重新归到泛短视频，
+        // 就不会再计入社交合计
         let rawTotal = 0;
-        for (const [appName, appTime] of Object.entries(appTimes)) {
-          const appRule = rules[appName];
-          if (appRule === '忽略') {
-            continue;
-          } else if (appRule && appRule !== cat) {
-            // 属于其他分类的App：用统一时长替换应用时长
-            const overallItem = overall.find(r => r.name === appName);
-            if (overallItem) {
-              rawTotal += overallItem.time;
-            }
-          } else {
-            rawTotal += appTime;
-          }
-        }
-        // 处理跨类App：如果overall里某个App归属本分类，但分类CSV里没有它（如合并后的WhatsApp）
         for (const item of overall) {
-          const itemCat = rules[item.name];
-          if (itemCat === cat && appTimes[item.name] === undefined) {
+          const appRule = rules[item.name];
+          if (appRule === cat) {
             rawTotal += item.time;
           }
         }
