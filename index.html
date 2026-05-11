@@ -409,14 +409,24 @@ async function runPipeline(){
       if(k){k.time=kwaiVal;log("Kwai 手动覆盖："+kwaiVal.toFixed(3),"ok");}
     } else log("Kwai 未覆盖，使用 data.ai 原始值","warn");
 
-    // ── Step 4: 读取分类别 CSV（仅用于 Top5 显示时长，不影响合计）──
+    // ── Step 4: 读取分类别 CSV ──
     const catCsvTimes={};
     for(const [k,cat] of Object.entries(CSV_CAT_MAP)){
       if(filesLoaded[k]){
         const res=await parseCatFile(filesLoaded[k],k);
         catCsvTimes[cat]=res.data;
-        log("分类 CSV 已加载："+k+"（"+Object.keys(res.data).length+" 条，仅影响显示时长）","ok");
+        log("分类 CSV 已加载："+k+"（"+Object.keys(res.data).length+" 条）","ok");
       }
+    }
+
+    // ── Step 4.5: 在各分类 CSV 里同步合并 WhatsApp（与 Overall 保持一致）──
+    for(const csvData of Object.values(catCsvTimes)){
+      const waMsg=csvData["WhatsApp Messenger"];
+      const waBiz=csvData["WhatsApp Business"];
+      const merged=(waMsg||0)+(waBiz||0);
+      if(merged>0) csvData["WhatsApp Messenger & WhatsApp Business"]=merged;
+      if(waMsg!==undefined) delete csvData["WhatsApp Messenger"];
+      if(waBiz!==undefined) delete csvData["WhatsApp Business"];
     }
 
     // ── Step 5: 按规则库分类所有 App ──
@@ -434,10 +444,18 @@ async function runPipeline(){
     if(unknown.length) log("发现 "+unknown.length+" 个未分类 App（时长 > 1.0 十亿分钟）","warn");
 
     // ── Step 6: 计算各分类结果 ──
-    // 合计 = 该分类所有 App 的 Overall 统一时长之和（含 TikTok/Kwai 覆盖值）
-    // Top5 排序 = 按 Overall 统一时长降序
-    // Top5 显示时长优先级：分类别CSV时长 > DISPLAY_OVERRIDES锁定值 > Overall时长
-    // 其他 = 合计 - Top5 显示时长之和
+    //
+    // 【有分类 CSV】合计来自 CSV：
+    //   ① CSV 里被划入其他分类的 app → 跳过（计入其他分类）
+    //   ② CSV 里规则为本分类 / 忽略 / 无规则的 app → 计入合计
+    //      其中「忽略」和无规则的 app 不进 Top5，体现为「其他」
+    //   ③ 本分类 app 不在 CSV 里（如合并后的 WhatsApp）→ 补 Overall 时长
+    //   Top5 = 规则库里本分类的 app，按 CSV 时长排序
+    //   其他 = 合计 − Top5 CSV 时长之和
+    //
+    // 【无分类 CSV】合计来自 Overall：
+    //   Top5 = Overall 排序，显示时长用 DISPLAY_OVERRIDES 锁定值
+    //   其他 = 合计 − Top5 Overall 基准时长之和
     log("计算各分类合计...");
     const result={};
     let grandTotal=0;
@@ -446,38 +464,52 @@ async function runPipeline(){
       const topN=TOP_N_BY_CAT[cat]||5;
       const csvTimes=catCsvTimes[cat]||{};
       const hasCsv=Object.keys(csvTimes).length>0;
+      let catTotal,topItems,top5,othersTime;
 
-      // 合计：所有 App 的 Overall/覆盖时长之和（不受 CSV/DISPLAY_OVERRIDES 影响）
-      const catTotal=catGroups[cat].reduce((s,item)=>s+item.time,0);
+      if(hasCsv){
+        // ── 有 CSV：合计来自 CSV ──
+        catTotal=0;
+        const countedViaCSV=new Set();
 
-      // 排序：有分类CSV时按CSV时长排序（更准确）；否则按Overall时长
-      const sorted=[...catGroups[cat]].sort((a,b)=>{
-        if(hasCsv){
-          const aT=csvTimes[a.name]!==undefined?csvTimes[a.name]:a.time;
-          const bT=csvTimes[b.name]!==undefined?csvTimes[b.name]:b.time;
-          return bT-aT;
+        // ① 遍历 CSV 里的所有 app
+        for(const [appName,csvTime] of Object.entries(csvTimes)){
+          const rule=rules[appName];
+          // 被明确划入其他分类 → 跳过
+          if(rule&&rule!==cat&&rule!=="忽略") continue;
+          catTotal+=csvTime;
+          if(rule===cat) countedViaCSV.add(appName);
         }
-        return b.time-a.time;
-      });
 
-      // Top N（按上方排序结果取前N）
-      const topItems=sorted.slice(0,topN);
-
-      // 计算每个 Top N App 的显示时长（CSV > DISPLAY_OVERRIDES > Overall）
-      const top5=topItems.map(item=>{
-        let displayTime;
-        if(csvTimes[item.name]!==undefined){
-          displayTime=csvTimes[item.name];
-        } else if(DISPLAY_OVERRIDES[item.name]!==undefined){
-          displayTime=DISPLAY_OVERRIDES[item.name]/1e9;
-        } else {
-          displayTime=item.time;
+        // ② 本分类 app 不在 CSV 里 → 补 Overall 时长
+        for(const item of catGroups[cat]){
+          if(!countedViaCSV.has(item.name)) catTotal+=item.time;
         }
-        return{name:item.name,displayTime,rank:item.rank};
-      });
 
-      // 其他 = 合计 - Top5 的 Overall 基准时长之和（不用显示时长，避免因CSV/锁定值偏差导致其他异常）
-      const othersTime=Math.max(0,catTotal-topItems.reduce((s,item)=>s+item.time,0));
+        // Top5：本分类 app，按 CSV 时长（CSV 里没有的用 Overall）排序
+        const sorted=catGroups[cat].map(item=>({
+          ...item,
+          sortTime:csvTimes[item.name]!==undefined?csvTimes[item.name]:item.time
+        })).sort((a,b)=>b.sortTime-a.sortTime);
+
+        topItems=sorted.slice(0,topN);
+        top5=topItems.map(item=>({name:item.name,displayTime:item.sortTime,rank:item.rank}));
+        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.sortTime,0));
+
+      } else {
+        // ── 无 CSV：合计来自 Overall ──
+        catTotal=catGroups[cat].reduce((s,item)=>s+item.time,0);
+        const sorted=[...catGroups[cat]].sort((a,b)=>b.time-a.time);
+        topItems=sorted.slice(0,topN);
+        top5=topItems.map(item=>({
+          name:item.name,
+          displayTime:DISPLAY_OVERRIDES[item.name]!==undefined
+            ?DISPLAY_OVERRIDES[item.name]/1e9
+            :item.time,
+          rank:item.rank
+        }));
+        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.time,0));
+      }
+
       result[cat]={total:catTotal,top5,others:othersTime};
       grandTotal+=catTotal;
     }
