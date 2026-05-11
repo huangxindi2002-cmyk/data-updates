@@ -466,33 +466,37 @@ async function runPipeline(){
       let catTotal,topItems,top5,othersTime;
 
       if(hasCsv){
-        // ── 有 CSV：合计来自 CSV ──
+        // ── 有 CSV：合计 = 忽略/无规则app的CSV时长 + 本分类app的Overall时长 ──
         catTotal=0;
-        const countedViaCSV=new Set();
 
-        // ① 遍历 CSV 里的所有 app
+        // ① CSV 里「忽略」或无规则的 app → 用 CSV 时长计入合计（体现为「其他」）
+        //    （如 Shopping CSV 里的 Nubank、Itaú 等，不在分类 Top5 但计入总量）
         for(const [appName,csvTime] of Object.entries(csvTimes)){
           const rule=rules[appName];
-          // 被明确划入其他分类 → 跳过
-          if(rule&&rule!==cat&&rule!=="忽略") continue;
+          if(rule&&rule!=="忽略") continue; // 有明确分类（本分类或其他）→ 跳过
           catTotal+=csvTime;
-          if(rule===cat) countedViaCSV.add(appName);
         }
 
-        // ② 本分类 app 不在 CSV 里 → 补 Overall 时长
+        // ② 本分类所有 app → 用 Overall 统一时长计入合计
         for(const item of catGroups[cat]){
-          if(!countedViaCSV.has(item.name)) catTotal+=item.time;
+          catTotal+=item.time;
         }
 
-        // Top5：本分类 app，按 CSV 时长（CSV 里没有的用 Overall）排序
+        // 排序：CSV 时长排序（更准确）；显示和「其他」用 Overall 时长
         const sorted=catGroups[cat].map(item=>({
           ...item,
           sortTime:csvTimes[item.name]!==undefined?csvTimes[item.name]:item.time
         })).sort((a,b)=>b.sortTime-a.sortTime);
 
         topItems=sorted.slice(0,topN);
-        top5=topItems.map(item=>({name:item.name,displayTime:item.sortTime,rank:item.rank}));
-        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.sortTime,0));
+        top5=topItems.map(item=>({
+          name:item.name,
+          displayTime:DISPLAY_OVERRIDES[item.name]!==undefined
+            ?DISPLAY_OVERRIDES[item.name]/1e9
+            :item.time,  // Overall 统一时长
+          rank:item.rank
+        }));
+        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.time,0));
 
       } else {
         // ── 无 CSV：合计来自 Overall ──
