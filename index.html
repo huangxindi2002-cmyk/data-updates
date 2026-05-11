@@ -123,7 +123,7 @@ tr:last-child td{border-bottom:none}
         </div>
       </div>
     </div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">分类别 CSV（可选，上传后 Top5 显示时长更准确；合计始终基于 Overall CSV）</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">分类别 CSV（可选；新闻 CSV 用于补充小新闻 app 时长，其余 CSV 用于合计口径）</div>
     <div class="upload-grid" id="cat-upload-grid"></div>
     <div class="section-sep"></div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:8px">手动覆盖时长（十亿分钟）</div>
@@ -207,10 +207,8 @@ tr:last-child td{border-bottom:none}
 const CATEGORIES = ["社交","泛短视频","直播","长视频","社区","新闻资讯","在线阅读","浏览器/搜索","音乐/音频","游戏","电商","生活服务"];
 const TOP_N_BY_CAT = {"社交":5,"直播":5,"泛短视频":5,"长视频":5,"社区":5,"新闻资讯":5,"在线阅读":5,"浏览器/搜索":5,"音乐/音频":5,"游戏":5,"电商":5,"生活服务":5};
 
-// 分类别 CSV 与分类名的映射
-// news 不在此处：News CSV 内容杂乱，新闻资讯改用显式规则 + Overall 口径
-// video 映射到长视频：Photo & Video CSV 全量 = Excel 长视频合计
-const CSV_CAT_MAP = {social:"社交",books:"在线阅读",music:"音乐/音频",games:"游戏",shopping:"电商",video:"长视频"};
+// 分类别 CSV 与分类名的映射（News/Photo&Video 单独处理）
+const CSV_CAT_MAP = {social:"社交",books:"在线阅读",music:"音乐/音频",games:"游戏",shopping:"电商"};
 
 // 显示时长锁定值（单位：分钟，原始精度）
 // 来源：data.ai Application Time 或其他权威数据源
@@ -398,7 +396,6 @@ function setRulesStatus(ok,msg){
 function buildCatUploads(){
   const cats=[
     {key:"social",label:"社交 (Social)"},
-    {key:"video",label:"视频 (Photo & Video)"},
     {key:"news",label:"新闻 (News)"},
     {key:"books",label:"阅读 (Books)"},
     {key:"music",label:"音乐 (Music)"},
@@ -542,11 +539,14 @@ async function runPipeline(){
         log("分类 CSV 已加载："+k+"（"+Object.keys(res.data).length+" 条）","ok");
       }
     }
+    // 新闻资讯 CSV：Application Time ≈ Overall Time for news apps，用于补充小新闻 app 时长
+    if(filesLoaded["news"]){
+      const res=await parseCatFile(filesLoaded["news"],"news");
+      catCsvTimes["新闻资讯"]=res.data;
+      log("新闻 CSV 已加载："+Object.keys(res.data).length+" 条","ok");
+    }
 
     // ── Step 4.5: 从各分类 CSV 中移除 WhatsApp 两条单独记录 ──
-    // WhatsApp Business 的 Social CSV 时长（18.02B）< Overall 时长（21.84B），
-    // 若用 CSV 合并会导致少算 ~3.82B。
-    // 删除后，Part 2 会自动用 Overall 合并值（249.99B）补入，与 Excel 保持一致。
     for(const csvData of Object.values(catCsvTimes)){
       delete csvData["WhatsApp Messenger"];
       delete csvData["WhatsApp Business"];
@@ -554,13 +554,12 @@ async function runPipeline(){
 
     // ── Step 5: 分类 ──
     // 优先级：忽略规则 > 显式规则（跨类覆盖/自定义分类）> CSV 隐式归类 > 未知
-    // 有 CSV 的分类（社交/游戏/电商/新闻/阅读/音乐）由 CSV 自动决定成员，不需要逐条规则
     log("应用分类规则...");
     const catGroups={};
     CATEGORIES.forEach(c=>catGroups[c]=[]);
     const unknown=[];
 
-    // 构建 app→CSV分类 反查表（无显式规则时用于隐式归类）
+    // 构建 app→CSV分类 反查表（Social最高优先级，新闻资讯最低）
     const appToCsvCat={};
     for(const[csvCat,csvData] of Object.entries(catCsvTimes)){
       for(const name of Object.keys(csvData)){
@@ -572,38 +571,56 @@ async function runPipeline(){
       const rule=rules[item.name];
       if(rule==="忽略") continue;
       if(rule&&catGroups[rule]!==undefined){
-        catGroups[rule].push(item);           // 显式规则（跨类覆盖或自定义分类成员）
+        catGroups[rule].push(item);
       } else if(!rule){
         const impliedCat=appToCsvCat[item.name];
         if(impliedCat&&catGroups[impliedCat]!==undefined){
-          catGroups[impliedCat].push(item);   // CSV 隐式归类（游戏/社交/电商/新闻/阅读/音乐）
+          catGroups[impliedCat].push(item);
         } else if(item.time>1.0){
-          unknown.push(item);                 // 无规则且无 CSV，时长>1B 则提示
+          unknown.push(item);
         }
       }
     }
     if(unknown.length) log("发现 "+unknown.length+" 个未分类 App（时长 > 1.0 十亿分钟）","warn");
 
+    // ── Step 5.5: 新闻资讯补充（News CSV 里不在 Overall CSV 的 app）──
+    if(catCsvTimes["新闻资讯"]){
+      // (a) 有显式新闻规则但不在 Overall CSV 里 → 用 News CSV Application Time 补入
+      const existingNews=new Set(catGroups["新闻资讯"].map(i=>i.name));
+      for(const[name,cat] of Object.entries(rules)){
+        if(cat!=="新闻资讯"||existingNews.has(name)) continue;
+        const t=catCsvTimes["新闻资讯"][name];
+        if(t) catGroups["新闻资讯"].push({name,time:t,rank:999});
+      }
+      // (b) News CSV 里无规则、未被其他 CSV 归类的 app → 隐式新闻资讯
+      const existingNews2=new Set(catGroups["新闻资讯"].map(i=>i.name));
+      for(const[name,t] of Object.entries(catCsvTimes["新闻资讯"])){
+        if(existingNews2.has(name)) continue;
+        const rule=rules[name];
+        if(rule==="忽略"||(rule&&rule!=="新闻资讯")) continue;
+        const impliedCat=appToCsvCat[name];
+        if(impliedCat&&impliedCat!=="新闻资讯") continue;
+        catGroups["新闻资讯"].push({name,time:t,rank:999});
+      }
+    }
+
     // ── Step 6: 计算各分类结果 ──
     //
-    // 【CSV Application Time 口径】游戏/电商/新闻/阅读/音乐（有对应 CSV）：
-    //   合计 = CSV 全量（包含忽略/无规则的 app），仅排除跨类到其他分类的 app
-    //   Top5 = catGroups 里在 CSV 中有记录的 app，按 CSV 应用时长排序
-    //   其他 = CSV合计 − Top5 CSV时长之和
+    // 【CSV Application Time 口径】游戏/电商/在线阅读/音乐（有 CSV）：
+    //   合计 = CSV 全量，排除跨类 app；Top5 按 DISPLAY_OVERRIDES > Overall 排序，显示 Overall；
+    //   其他 = CSV合计 − Top5 显示时长之和
     //
-    // 【Overall 口径】社交（有 Social CSV，但合计用 Overall 统一时长）：
-    //   合计 = catGroups["社交"] 的 Overall 时长之和
-    //   Top5 按 Social CSV 应用时长排序，显示 Overall 时长（非 CSV 时长）
-    //   其他 = Overall合计 − Top5 Overall时长之和
+    // 【Overall 口径】社交：合计 = catGroups["社交"] Overall 之和；
+    //   Top5 按 Social CSV 应用时长排序，显示 Overall
     //
-    // 【Overall 口径】长视频/泛短视频/直播/社区/浏览器/生活服务（无 CSV）：
+    // 【Overall 口径】长视频/泛短视频/直播/社区/新闻资讯/浏览器/搜索/生活服务：
     //   合计/Top5/其他 均基于 Overall 时长，DISPLAY_OVERRIDES 覆盖显示和排序
     log("计算各分类合计...");
     const result={};
     let grandTotal=0;
 
-    // CSV Application Time 口径的分类（有 CSV 且用 CSV 时长作为合计基础）
-    const CSV_APP_TIME_CATS=new Set(["游戏","电商","在线阅读","音乐/音频","长视频"]);
+    // CSV Application Time 口径的分类（游戏/电商/在线阅读/音乐；长视频改为 Overall 口径）
+    const CSV_APP_TIME_CATS=new Set(["游戏","电商","在线阅读","音乐/音频"]);
 
     for(const cat of CATEGORIES){
       const topN=TOP_N_BY_CAT[cat]||5;
@@ -612,28 +629,33 @@ async function runPipeline(){
       let catTotal,topItems,top5,othersTime;
 
       if(CSV_APP_TIME_CATS.has(cat)&&hasCsv){
-        // ── CSV Application Time 口径 ──
-        // 合计 = CSV 里所有 app 的应用时长，仅排除被跨类到其他12分类的 app
+        // ── CSV Application Time 口径（合计用 CSV 时长，Top5 排序/显示用 Overall）──
         catTotal=0;
         for(const[name,t] of Object.entries(csvTimes)){
           const r=rules[name];
-          if(r&&r!==cat&&CATEGORIES.includes(r)) continue; // 被跨类覆盖到其他分类
+          if(r&&r!==cat&&CATEGORIES.includes(r)) continue;
           catTotal+=t;
         }
-        // Top5：catGroups 里同时在 CSV 里的 app，按 CSV 时长排序
+        // Top5：catGroups 里同时在 CSV 里的 app，按 DISPLAY_OVERRIDES > Overall 时长排序，显示 Overall
         const eligible=catGroups[cat].filter(item=>csvTimes[item.name]!==undefined);
         const csvRanked=eligible
           .map(item=>({...item,csvT:csvTimes[item.name]}))
-          .sort((a,b)=>b.csvT-a.csvT);
+          .sort((a,b)=>{
+            const ra=DISPLAY_OVERRIDES[a.name]??a.time*1e9;
+            const rb=DISPLAY_OVERRIDES[b.name]??b.time*1e9;
+            return rb-ra;
+          });
         topItems=csvRanked.slice(0,topN);
         top5=topItems.map(item=>({
           name:item.name,
           displayTime:DISPLAY_OVERRIDES[item.name]!==undefined
             ?DISPLAY_OVERRIDES[item.name]/1e9
-            :item.csvT,
+            :item.time,
           rank:item.rank
         }));
-        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.csvT,0));
+        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+(
+          DISPLAY_OVERRIDES[a.name]!==undefined?DISPLAY_OVERRIDES[a.name]/1e9:a.time
+        ),0));
 
       } else if(cat==="社交"&&hasCsv){
         // ── 社交：Overall 口径（成员由 Social CSV 隐式决定，合计用 Overall 时长）──
