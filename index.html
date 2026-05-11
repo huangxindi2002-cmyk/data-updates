@@ -207,9 +207,10 @@ tr:last-child td{border-bottom:none}
 const CATEGORIES = ["社交","泛短视频","直播","长视频","社区","新闻资讯","在线阅读","浏览器/搜索","音乐/音频","游戏","电商","生活服务"];
 const TOP_N_BY_CAT = {"社交":5,"直播":5,"泛短视频":5,"长视频":5,"社区":5,"新闻资讯":5,"在线阅读":5,"浏览器/搜索":5,"音乐/音频":5,"游戏":5,"电商":5,"生活服务":5};
 
-// 分类别 CSV 对应的分类名（仅影响 Top5 显示时长，不影响合计）
-// 泛短视频无对应 data.ai CSV，始终用 Overall 时长
-const CSV_CAT_MAP = {social:"社交",news:"新闻资讯",books:"在线阅读",music:"音乐/音频",games:"游戏",shopping:"电商"};
+// 分类别 CSV 与分类名的映射
+// news 不在此处：News CSV 内容杂乱，新闻资讯改用显式规则 + Overall 口径
+// video 映射到长视频：Photo & Video CSV 全量 = Excel 长视频合计
+const CSV_CAT_MAP = {social:"社交",books:"在线阅读",music:"音乐/音频",games:"游戏",shopping:"电商",video:"长视频"};
 
 // 显示时长锁定值（单位：分钟，原始精度）
 // 来源：data.ai Application Time 或其他权威数据源
@@ -252,14 +253,23 @@ const DEFAULT_RULES = {
 
   // ── 跨类覆盖：Social CSV 里的 app → 我们的自定义分类 ──
   "Instagram":"泛短视频","TikTok":"泛短视频","Kwai":"泛短视频","CapCut":"泛短视频","CAPCUT":"泛短视频","Likee":"泛短视频","Reel":"泛短视频",
-  "Twitch":"直播","BIGO LIVE":"直播","Pluto.tv":"直播","Hago":"直播","Kako Live":"直播","Kick: Live Streaming":"直播","Facecast":"直播",
+  "Twitch":"直播","BIGO LIVE":"直播","Pluto.tv":"直播","Hago":"直播",
+  "Kako Live":"忽略","Kick: Live Streaming":"忽略","Facecast":"忽略",
   "Pinterest":"社区","Reddit":"社区","Quora":"社区","quora":"社区","Helo - Share Your Life":"社区",
 
   // ── 跨类覆盖：Shopping CSV 里的 app → 生活服务 ──
   "Uber":"生活服务","iFood Delivery de Comida":"生活服务","99Taxis":"生活服务","inDrive":"生活服务",
-  "Booking.com":"生活服务","Airbnb":"生活服务","Lalamove Driver":"生活服务","BlaBlaCar":"生活服务","Rappi":"生活服务",
+  "Booking.com":"生活服务","Airbnb":"生活服务","Lalamove Driver":"生活服务",
+  "BlaBlaCar":"忽略","Rappi":"忽略",
 
-  // ── 自定义分类：长视频（Overall 口径，未上传 Photo & Video CSV）──
+  // ── 自定义分类：新闻资讯（Overall 口径，手工挑选；不用 News CSV 全量）──
+  "Google News":"新闻资讯","G1":"新闻资讯","UOL | Notícias em Tempo Real":"新闻资讯",
+  "Opera News":"新闻资讯","Folha de S.Paulo":"新闻资讯","Flipboard":"新闻资讯",
+  "Zero Hora":"新闻资讯","Panflix":"新闻资讯","Brazilian Newspas":"新闻资讯",
+
+  // ── 自定义分类：长视频（Photo & Video CSV 口径；上传 video CSV 时用 CSV 全量）──
+  // OiTube / YouTube Kids 在 Excel 长视频 Top5，需显式规则
+  "OiTube":"长视频","YouTube Kids":"长视频",
   "YouTube":"长视频","Youtube":"长视频","Netflix":"长视频","Globo Play":"长视频","Amazon Prime Video":"长视频",
   "disney+":"长视频","Disney+":"长视频","Max: Stream HBO, TV, & Movies":"长视频","Star+":"长视频","Crunchyroll":"长视频",
   "Paramount+":"长视频","TVE Mobile":"长视频","PlayPlus":"长视频","Claro Tv+":"长视频","SKY+: TV+Streaming":"长视频",
@@ -348,7 +358,7 @@ const DEFAULT_RULES = {
   "Vanced Official - Block All Ads For Tube Vanced":"忽略","TV Connect":"忽略",
   "Yoosee":"忽略","Intelbras Isic":"忽略","iCSee":"忽略","Hik-Connect":"忽略",
   "V380":"忽略","V380 Pro":"忽略","Mibo Cam":"忽略","Smart IPTV Xtream Player":"忽略",
-  "YouTube Kids":"忽略","OiTube":"忽略","AnmBR":"忽略","CineTela - Filmes e Séries":"忽略",
+  "AnmBR":"忽略","CineTela - Filmes e Séries":"忽略",
   "ChatGPT":"忽略","Character AI":"忽略","DeepSeek":"忽略","Grok - AI Assistant":"忽略",
   "Microsoft Copilot":"忽略","Perplexity":"忽略","Luzia: Your AI Assistant":"忽略",
   "Microsoft Teams":"忽略","Microsoft Outlook":"忽略","Microsoft Word":"忽略",
@@ -593,7 +603,7 @@ async function runPipeline(){
     let grandTotal=0;
 
     // CSV Application Time 口径的分类（有 CSV 且用 CSV 时长作为合计基础）
-    const CSV_APP_TIME_CATS=new Set(["游戏","电商","新闻资讯","在线阅读","音乐/音频"]);
+    const CSV_APP_TIME_CATS=new Set(["游戏","电商","在线阅读","音乐/音频","长视频"]);
 
     for(const cat of CATEGORIES){
       const topN=TOP_N_BY_CAT[cat]||5;
