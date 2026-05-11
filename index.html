@@ -419,14 +419,13 @@ async function runPipeline(){
       }
     }
 
-    // ── Step 4.5: 在各分类 CSV 里同步合并 WhatsApp（与 Overall 保持一致）──
+    // ── Step 4.5: 从各分类 CSV 中移除 WhatsApp 两条单独记录 ──
+    // WhatsApp Business 的 Social CSV 时长（18.02B）< Overall 时长（21.84B），
+    // 若用 CSV 合并会导致少算 ~3.82B。
+    // 删除后，Part 2 会自动用 Overall 合并值（249.99B）补入，与 Excel 保持一致。
     for(const csvData of Object.values(catCsvTimes)){
-      const waMsg=csvData["WhatsApp Messenger"];
-      const waBiz=csvData["WhatsApp Business"];
-      const merged=(waMsg||0)+(waBiz||0);
-      if(merged>0) csvData["WhatsApp Messenger & WhatsApp Business"]=merged;
-      if(waMsg!==undefined) delete csvData["WhatsApp Messenger"];
-      if(waBiz!==undefined) delete csvData["WhatsApp Business"];
+      delete csvData["WhatsApp Messenger"];
+      delete csvData["WhatsApp Business"];
     }
 
     // ── Step 5: 按规则库分类所有 App ──
