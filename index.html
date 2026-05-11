@@ -231,7 +231,9 @@ const DISPLAY_OVERRIDES = {
   "Booking.com":373162010,
   "Airbnb":298177036,
   "Lalamove Driver":362383601,
-  "waze":11890547649
+  "waze":11890547649,
+  "Melolo - Short Movie & TV":10000000,
+  "DramaReels - Pure Short Dramas":10000000
 };
 
 let rules = {};
@@ -465,53 +467,28 @@ async function runPipeline(){
       const hasCsv=Object.keys(csvTimes).length>0;
       let catTotal,topItems,top5,othersTime;
 
-      if(hasCsv){
-        // ── 有 CSV：合计 = 忽略/无规则app的CSV时长 + 本分类app的Overall时长 ──
-        catTotal=0;
+      // 合计：本分类所有 app 的 Overall 统一时长之和
+      catTotal=catGroups[cat].reduce((s,item)=>s+item.time,0);
 
-        // ① CSV 里「忽略」或无规则的 app → 用 CSV 时长计入合计（体现为「其他」）
-        //    （如 Shopping CSV 里的 Nubank、Itaú 等，不在分类 Top5 但计入总量）
-        for(const [appName,csvTime] of Object.entries(csvTimes)){
-          const rule=rules[appName];
-          if(rule&&rule!=="忽略") continue; // 有明确分类（本分类或其他）→ 跳过
-          catTotal+=csvTime;
-        }
+      // 排序得分：DISPLAY_OVERRIDES（如有）> CSV 时长（如有）> Overall 时长
+      // DISPLAY_OVERRIDES 同时控制显示时长和排序，用于把 Application Time 低的 app
+      // （如 Melolo、DramaReels）压出 Top5，同时保留它们计入合计
+      const rankScore=item=>{
+        if(DISPLAY_OVERRIDES[item.name]!==undefined) return DISPLAY_OVERRIDES[item.name]/1e9;
+        if(hasCsv&&csvTimes[item.name]!==undefined) return csvTimes[item.name];
+        return item.time;
+      };
+      const sorted=[...catGroups[cat]].sort((a,b)=>rankScore(b)-rankScore(a));
+      topItems=sorted.slice(0,topN);
 
-        // ② 本分类所有 app → 用 Overall 统一时长计入合计
-        for(const item of catGroups[cat]){
-          catTotal+=item.time;
-        }
+      top5=topItems.map(item=>({
+        name:item.name,
+        displayTime:rankScore(item),  // 显示时长与排序一致
+        rank:item.rank
+      }));
 
-        // 排序：CSV 时长排序（更准确）；显示和「其他」用 Overall 时长
-        const sorted=catGroups[cat].map(item=>({
-          ...item,
-          sortTime:csvTimes[item.name]!==undefined?csvTimes[item.name]:item.time
-        })).sort((a,b)=>b.sortTime-a.sortTime);
-
-        topItems=sorted.slice(0,topN);
-        top5=topItems.map(item=>({
-          name:item.name,
-          displayTime:DISPLAY_OVERRIDES[item.name]!==undefined
-            ?DISPLAY_OVERRIDES[item.name]/1e9
-            :item.time,  // Overall 统一时长
-          rank:item.rank
-        }));
-        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.time,0));
-
-      } else {
-        // ── 无 CSV：合计来自 Overall ──
-        catTotal=catGroups[cat].reduce((s,item)=>s+item.time,0);
-        const sorted=[...catGroups[cat]].sort((a,b)=>b.time-a.time);
-        topItems=sorted.slice(0,topN);
-        top5=topItems.map(item=>({
-          name:item.name,
-          displayTime:DISPLAY_OVERRIDES[item.name]!==undefined
-            ?DISPLAY_OVERRIDES[item.name]/1e9
-            :item.time,
-          rank:item.rank
-        }));
-        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.time,0));
-      }
+      // 其他 = 合计 − Top5 的 Overall 时长之和（基准值）
+      othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.time,0));
 
       result[cat]={total:catTotal,top5,others:othersTime};
       grandTotal+=catTotal;
