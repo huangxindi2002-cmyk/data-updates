@@ -204,11 +204,27 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <script>
-const CATEGORIES = ["社交","泛短视频","直播","长视频","社区","新闻资讯","在线阅读","浏览器/搜索","音乐/音频","游戏","电商","生活服务"];
-const TOP_N_BY_CAT = {"社交":5,"直播":5,"泛短视频":5,"长视频":5,"社区":5,"新闻资讯":5,"在线阅读":5,"浏览器/搜索":5,"音乐/音频":5,"游戏":5,"电商":5,"生活服务":5};
+const CATEGORIES = ["社交","泛短视频","直播","中长视频","短剧","社区","新闻资讯","在线阅读","浏览器/搜索","音乐/音频","游戏","电商","生活服务","AI"];
+const TOP_N_BY_CAT = Object.fromEntries(CATEGORIES.map(c=>[c,5]));
 
 // 分类别 CSV 与分类名的映射（News/Photo&Video 单独处理）
-const CSV_CAT_MAP = {social:"社交",books:"在线阅读",music:"音乐/音频",games:"游戏",shopping:"电商"};
+const CSV_CAT_MAP = {
+  social:"Social",
+  video:"Photo & Video",
+  news:"News & Magazines",
+  books:"Books & Reference",
+  music:"Music",
+  games:"Games",
+  shopping:"Shopping"
+};
+const ENG_TO_CN = {
+  "Social":"社交",
+  "Games":"游戏",
+  "Music":"音乐/音频",
+  "News & Magazines":"新闻资讯",
+  "Books & Reference":"在线阅读",
+  "Shopping":"电商"
+};
 
 // 显示时长锁定值（单位：分钟，原始精度）
 // 来源：data.ai Application Time 或其他权威数据源
@@ -234,6 +250,7 @@ const DISPLAY_OVERRIDES = {
 };
 
 let rules = {};
+let manualRules = {rules:{},tt_kwai:{},tt_kwai_monthly:{},app_splits:{}};
 let filesLoaded = {};
 let processedData = null;
 
@@ -359,15 +376,48 @@ async function loadRules(){
     const res = await fetch(REPO_RULES_URL+"?t="+Date.now());
     if(res.ok){
       const remote = await res.json();
-      rules = {...DEFAULT_RULES,...remote};
+      setLoadedRules(remote);
       setRulesStatus(true,"规则库已加载（"+Object.keys(rules).length+" 条）");
     } else throw new Error();
   } catch(e){
-    rules = {...DEFAULT_RULES};
+    setLoadedRules(DEFAULT_RULES);
     setRulesStatus(false,"使用内置规则库（"+Object.keys(rules).length+" 条）");
   }
   renderRulesTable();
   buildCatSelects();
+}
+
+function normalizeRuleCat(cat){
+  if(cat==="忽略") return "排除";
+  if(cat==="长视频") return "中长视频";
+  return ENG_TO_CN[cat] || cat;
+}
+
+function setLoadedRules(raw){
+  if(raw && raw.rules){
+    manualRules = {
+      ...raw,
+      rules: Object.fromEntries(Object.entries(raw.rules||{}).map(([name,rule])=>[
+        name,
+        typeof rule==="string" ? {cat:normalizeRuleCat(rule),tag:0,ext_time:null} : {...rule,cat:normalizeRuleCat(rule.cat)}
+      ])),
+      tt_kwai: raw.tt_kwai || {},
+      tt_kwai_monthly: raw.tt_kwai_monthly || {},
+      app_splits: raw.app_splits || {}
+    };
+  } else {
+    const merged = {...DEFAULT_RULES,...(raw||{})};
+    manualRules = {
+      rules: Object.fromEntries(Object.entries(merged).map(([name,cat])=>[
+        name,
+        {cat:normalizeRuleCat(cat),tag:0,ext_time:null}
+      ])),
+      tt_kwai:{},
+      tt_kwai_monthly:{},
+      app_splits:{}
+    };
+  }
+  rules = Object.fromEntries(Object.entries(manualRules.rules).map(([name,rule])=>[name,rule.cat]));
 }
 
 function setRulesStatus(ok,msg){
@@ -396,7 +446,7 @@ function buildCatUploads(){
 function buildCatSelects(){
   ["new-app-cat"].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.innerHTML=["忽略",...CATEGORIES].map(c=>`<option value="${c}">${c}</option>`).join("");
+    if(el) el.innerHTML=["排除",...CATEGORIES].map(c=>`<option value="${c}">${c}</option>`).join("");
   });
 }
 
@@ -439,7 +489,7 @@ async function parseOverall(file){
     const name=r[nameIdx]?.trim();
     const t=parseFloat(r[timeIdx]);
     const rank=parseInt(r[rankIdx])||999;
-    if(name&&!isNaN(t)&&(t>=0)) data.push({name,time:t/1e9,rank});
+    if(name&&!isNaN(t)&&(t>=0)) data.push({name,time:t,rank});
   }
   return data;
 }
@@ -456,9 +506,185 @@ async function parseCatFile(file,catKey){
     const r=rows[i];
     const name=r[nameIdx]?.trim();
     const t=parseFloat(r[timeIdx]);
-    if(name&&!isNaN(t)) result[name]=t/1e9;
+    if(name&&!isNaN(t)) result[name]=t;
   }
   return{cat:CSV_CAT_MAP[catKey],data:result};
+}
+
+function parseOverrideMinutes(inputId){
+  const v=parseFloat(document.getElementById(inputId).value);
+  return Number.isFinite(v) ? v*1e9 : null;
+}
+
+function runDataAutoPipeline(csvData, month, manual, overrides){
+  const rulesRaw = manual.rules || {};
+  const ruleByLower = {};
+  for(const [name,rule] of Object.entries(rulesRaw)){
+    ruleByLower[name.toLowerCase()] = rule;
+  }
+  const lookupRule = name => ruleByLower[String(name||"").toLowerCase()];
+
+  const ttKwai = {...(manual.tt_kwai||{})};
+  const monthly = (manual.tt_kwai_monthly||{})[month] || {};
+  if(monthly.TikTok!==undefined) ttKwai.TikTok = Number(monthly.TikTok);
+  if(monthly.Kwai!==undefined) ttKwai.Kwai = Number(monthly.Kwai);
+  if(overrides.TikTok!==null) ttKwai.TikTok = overrides.TikTok;
+  if(overrides.Kwai!==null) ttKwai.Kwai = overrides.Kwai;
+
+  const overall = {};
+  const overallCanonical = {};
+  const overallRank = {};
+  for(const item of csvData.Overall || []){
+    if(!item.name || !item.time) continue;
+    const key = item.name.toLowerCase();
+    if(!overallCanonical[key]) overallCanonical[key] = item.name;
+    const canonical = overallCanonical[key];
+    overall[canonical] = (overall[canonical] || 0) + Number(item.time);
+    overallRank[canonical] = Math.min(overallRank[canonical] || item.rank || 999, item.rank || 999);
+  }
+
+  const catAppTime = {};
+  for(const [csvCat,items] of Object.entries(csvData)){
+    if(csvCat==="Overall") continue;
+    for(const item of items || []){
+      if(!item.name || !(Number(item.time)>0)) continue;
+      const key = item.name.toLowerCase();
+      const canonical = overallCanonical[key] || item.name;
+      if(!overallCanonical[key]) overallCanonical[key] = canonical;
+      if(!catAppTime[canonical]) catAppTime[canonical] = {};
+      catAppTime[canonical][csvCat] = (catAppTime[canonical][csvCat] || 0) + Number(item.time);
+    }
+  }
+
+  const nameToCat = {};
+  for(const [name,csvTimes] of Object.entries(catAppTime)){
+    const entries = Object.entries(csvTimes);
+    if(!entries.length) continue;
+    const [cat1,maxT] = entries.sort((a,b)=>b[1]-a[1])[0];
+    const p = overall[name] || maxT;
+    const rule = lookupRule(name);
+    if(rule && rule.cat){
+      nameToCat[name] = rule.cat;
+    } else if(p>0 && maxT/p>0.5){
+      nameToCat[name] = cat1;
+    }
+  }
+
+  for(const name of Object.keys(overall)){
+    if(nameToCat[name]) continue;
+    const rule = lookupRule(name);
+    if(rule && rule.cat) nameToCat[name] = rule.cat;
+  }
+
+  for(const [name,rule] of Object.entries(rulesRaw)){
+    if(rule.tag===1) nameToCat[name] = rule.cat;
+  }
+
+  const nameUnified = {};
+  for(const [name] of Object.entries(nameToCat)){
+    if(ttKwai[name]!==undefined){
+      nameUnified[name] = Number(ttKwai[name]);
+    } else if(overall[name]!==undefined){
+      nameUnified[name] = overall[name];
+    } else {
+      const rule = lookupRule(name);
+      if(rule && rule.tag===1 && rule.ext_time) nameUnified[name] = Number(rule.ext_time);
+      else if(catAppTime[name]) nameUnified[name] = Math.max(...Object.values(catAppTime[name]));
+    }
+  }
+
+  const appSplits = manual.app_splits || {};
+  const splitRecords = [];
+  for(const [origName,splitCfg] of Object.entries(appSplits)){
+    let actual = Object.keys(nameToCat).find(n=>n.toLowerCase()===origName.toLowerCase());
+    if(!actual) continue;
+    const totalT = nameUnified[actual] || 0;
+    if(totalT<=0) continue;
+    const splitNames = splitCfg.split_names || {};
+    const monthOverride = (splitCfg.monthly_override||{})[month] || {};
+    let assigned = {};
+    if(monthOverride.reels_time!==undefined){
+      const keys = Object.keys(splitCfg.default_ratio||{});
+      if(keys.length>=2){
+        assigned[keys[0]] = Number(monthOverride.reels_time);
+        assigned[keys[1]] = Math.max(totalT-Number(monthOverride.reels_time),0);
+      }
+    } else {
+      const ratio = monthOverride.ratio || splitCfg.default_ratio || {};
+      for(const [cat,r] of Object.entries(ratio)) assigned[cat] = totalT*Number(r);
+    }
+    for(const [cat,t] of Object.entries(assigned)){
+      const zhCat = normalizeRuleCat(cat);
+      splitRecords.push({name:splitNames[cat] || `${actual} (${zhCat})`, cat:zhCat, time:t});
+    }
+    delete nameToCat[actual];
+    delete nameUnified[actual];
+  }
+
+  const catApps = Object.fromEntries(CATEGORIES.map(c=>[c,[]]));
+  const catTotal = Object.fromEntries(CATEGORIES.map(c=>[c,0]));
+  for(const [name,catRaw] of Object.entries(nameToCat)){
+    const cat = normalizeRuleCat(catRaw);
+    if(cat==="排除") continue;
+    if(catApps[cat] && (nameUnified[name]||0)>0){
+      catApps[cat].push({name,time:nameUnified[name]});
+      catTotal[cat] += nameUnified[name];
+    }
+  }
+  for(const rec of splitRecords){
+    if(catApps[rec.cat] && rec.time>0){
+      catApps[rec.cat].push({name:rec.name,time:rec.time});
+      catTotal[rec.cat] += rec.time;
+    }
+  }
+
+  const mergeGroups = {
+    "WhatsApp Messenger & WhatsApp Business":["WhatsApp Messenger","WhatsApp Business"]
+  };
+  for(const [mergedName,originals] of Object.entries(mergeGroups)){
+    for(const cat of CATEGORIES){
+      const matched = catApps[cat].filter(a=>originals.includes(a.name));
+      if(matched.length>=2){
+        const mergedTime = matched.reduce((s,a)=>s+a.time,0);
+        catApps[cat] = catApps[cat].filter(a=>!originals.includes(a.name));
+        catApps[cat].push({name:mergedName,time:mergedTime});
+      }
+    }
+  }
+
+  const result = {};
+  for(const cat of CATEGORIES){
+    const apps = [...catApps[cat]].sort((a,b)=>b.time-a.time).map(a=>({
+      ...a,
+      displayTime:a.time/1e9,
+      rank:overallRank[a.name] || "—"
+    }));
+    const topN = TOP_N_BY_CAT[cat] || 5;
+    result[cat] = {
+      total:catTotal[cat]/1e9,
+      top5:apps.slice(0,topN),
+      others:apps.slice(topN).reduce((s,a)=>s+a.time,0)/1e9,
+      allApps:apps
+    };
+  }
+
+  const splitOrigLower = new Set(Object.keys(appSplits).map(n=>n.toLowerCase()));
+  const excludedLower = new Set(Object.entries(ruleByLower).filter(([,r])=>normalizeRuleCat(r.cat)==="排除").map(([n])=>n));
+  const unknown = [];
+  for(const [name,t] of Object.entries(overall)){
+    if(nameToCat[name]) continue;
+    const lower = name.toLowerCase();
+    if(splitOrigLower.has(lower) || excludedLower.has(lower)) continue;
+    if(t/1e9>0.5) unknown.push({name,time:t/1e9});
+  }
+  unknown.sort((a,b)=>b.time-a.time);
+
+  return {
+    result,
+    unknown,
+    grandTotal:Object.values(catTotal).reduce((s,t)=>s+t,0)/1e9,
+    kwaiRank:Object.entries(overallRank).find(([n])=>n.toLowerCase()==="kwai")?.[1] || "—"
+  };
 }
 
 function log(msg,type="info"){
@@ -478,215 +704,38 @@ async function runPipeline(){
   const month=document.getElementById("month-input").value||"未知月份";
 
   try{
-    // ── Step 1: 读取 Overall CSV ──
     log("读取 Overall CSV...");
-    let overall=await parseOverall(filesLoaded["overall"]);
-    log("读取 "+overall.length+" 条记录","ok");
+    const overall=await parseOverall(filesLoaded["overall"]);
+    log("读取 "+overall.length+" 条 Overall 记录","ok");
 
-    // ── Step 2: 合并 WhatsApp ──
-    log("合并 WhatsApp Messenger + WhatsApp Business...");
-    const waMsg=overall.find(r=>r.name==="WhatsApp Messenger");
-    const waBiz=overall.find(r=>r.name==="WhatsApp Business");
-    if(waMsg&&waBiz){
-      waMsg.name="WhatsApp Messenger & WhatsApp Business";
-      waMsg.time+=waBiz.time;
-      overall=overall.filter(r=>r.name!=="WhatsApp Business");
-      log("合并后时长："+waMsg.time.toFixed(3)+" 十亿分钟","ok");
-    } else if(waMsg){
-      waMsg.name="WhatsApp Messenger & WhatsApp Business";
-      log("未找到 WhatsApp Business，仅使用 Messenger","warn");
-    } else {
-      log("未找到 WhatsApp，跳过合并","warn");
-    }
-    // 更新规则库里的合并名
-    rules["WhatsApp Messenger & WhatsApp Business"]="社交";
-
-    // ── Step 3: 手动覆盖 TikTok / Kwai ──
-    const tiktokVal=parseFloat(document.getElementById("tiktok-val").value);
-    const kwaiVal=parseFloat(document.getElementById("kwai-val").value);
-    if(!isNaN(tiktokVal)){
-      const t=overall.find(r=>r.name==="TikTok");
-      if(t){t.time=tiktokVal;log("TikTok 手动覆盖："+tiktokVal.toFixed(3),"ok");}
-    } else log("TikTok 未覆盖，使用 data.ai 原始值","warn");
-    if(!isNaN(kwaiVal)){
-      const k=overall.find(r=>r.name==="Kwai");
-      if(k){k.time=kwaiVal;log("Kwai 手动覆盖："+kwaiVal.toFixed(3),"ok");}
-    } else log("Kwai 未覆盖，使用 data.ai 原始值","warn");
-
-    // ── Step 4: 读取分类别 CSV ──
-    const catCsvTimes={};
-    for(const [k,cat] of Object.entries(CSV_CAT_MAP)){
-      if(filesLoaded[k]){
-        const res=await parseCatFile(filesLoaded[k],k);
-        catCsvTimes[cat]=res.data;
-        log("分类 CSV 已加载："+k+"（"+Object.keys(res.data).length+" 条）","ok");
-      }
-    }
-    // 新闻资讯 CSV：Application Time ≈ Overall Time for news apps，用于补充小新闻 app 时长
-    if(filesLoaded["news"]){
-      const res=await parseCatFile(filesLoaded["news"],"news");
-      catCsvTimes["新闻资讯"]=res.data;
-      log("新闻 CSV 已加载："+Object.keys(res.data).length+" 条","ok");
+    const csvData={Overall:overall};
+    for(const key of Object.keys(CSV_CAT_MAP)){
+      if(!filesLoaded[key]) continue;
+      const res=await parseCatFile(filesLoaded[key],key);
+      csvData[res.cat]=Object.entries(res.data).map(([name,time])=>({name,time}));
+      log("分类 CSV 已加载："+res.cat+"（"+csvData[res.cat].length+" 条）","ok");
     }
 
-    // ── Step 4.5: 从各分类 CSV 中移除 WhatsApp 两条单独记录 ──
-    for(const csvData of Object.values(catCsvTimes)){
-      delete csvData["WhatsApp Messenger"];
-      delete csvData["WhatsApp Business"];
-    }
+    const overrides={
+      TikTok:parseOverrideMinutes("tiktok-val"),
+      Kwai:parseOverrideMinutes("kwai-val")
+    };
+    if(overrides.TikTok!==null) log("TikTok 手动覆盖："+(overrides.TikTok/1e9).toFixed(3)+" 十亿分钟","ok");
+    else if((manualRules.tt_kwai_monthly||{})[month]?.TikTok!==undefined) log("TikTok 使用规则库月度覆盖："+(manualRules.tt_kwai_monthly[month].TikTok/1e9).toFixed(3)+" 十亿分钟","ok");
+    else log("TikTok 未覆盖，使用 data.ai 原始值","warn");
 
-    // ── Step 5: 分类 ──
-    // 优先级：忽略规则 > 显式规则（跨类覆盖/自定义分类）> CSV 隐式归类 > 未知
-    log("应用分类规则...");
-    const catGroups={};
-    CATEGORIES.forEach(c=>catGroups[c]=[]);
-    const unknown=[];
+    if(overrides.Kwai!==null) log("Kwai 手动覆盖："+(overrides.Kwai/1e9).toFixed(3)+" 十亿分钟","ok");
+    else if((manualRules.tt_kwai_monthly||{})[month]?.Kwai!==undefined) log("Kwai 使用规则库月度覆盖："+(manualRules.tt_kwai_monthly[month].Kwai/1e9).toFixed(3)+" 十亿分钟","ok");
+    else log("Kwai 未覆盖，使用 data.ai 原始值","warn");
 
-    // 构建 app→CSV分类 反查表（Social最高优先级，新闻资讯最低）
-    const appToCsvCat={};
-    for(const[csvCat,csvData] of Object.entries(catCsvTimes)){
-      for(const name of Object.keys(csvData)){
-        if(!appToCsvCat[name]) appToCsvCat[name]=csvCat;
-      }
-    }
+    if((manualRules.app_splits||{}).Instagram) log("Instagram 拆分规则已启用","ok");
+    log("应用 data-auto 规则并计算 14 个赛道...");
+    const out=runDataAutoPipeline(csvData,month,manualRules,overrides);
 
-    for(const item of overall){
-      const rule=rules[item.name];
-      if(rule==="忽略") continue;
-      if(rule&&catGroups[rule]!==undefined){
-        catGroups[rule].push(item);
-      } else if(!rule){
-        const impliedCat=appToCsvCat[item.name];
-        if(impliedCat&&catGroups[impliedCat]!==undefined){
-          catGroups[impliedCat].push(item);
-        } else if(item.time>1.0){
-          unknown.push(item);
-        }
-      }
-    }
-    if(unknown.length) log("发现 "+unknown.length+" 个未分类 App（时长 > 1.0 十亿分钟）","warn");
-
-    // ── Step 5.5: 新闻资讯补充（News CSV 里不在 Overall CSV 的 app）──
-    if(catCsvTimes["新闻资讯"]){
-      // (a) 有显式新闻规则但不在 Overall CSV 里 → 用 News CSV Application Time 补入
-      const existingNews=new Set(catGroups["新闻资讯"].map(i=>i.name));
-      for(const[name,cat] of Object.entries(rules)){
-        if(cat!=="新闻资讯"||existingNews.has(name)) continue;
-        const t=catCsvTimes["新闻资讯"][name];
-        if(t) catGroups["新闻资讯"].push({name,time:t,rank:999});
-      }
-      // (b) News CSV 里无规则、未被其他 CSV 归类的 app → 隐式新闻资讯
-      const existingNews2=new Set(catGroups["新闻资讯"].map(i=>i.name));
-      for(const[name,t] of Object.entries(catCsvTimes["新闻资讯"])){
-        if(existingNews2.has(name)) continue;
-        const rule=rules[name];
-        if(rule==="忽略"||(rule&&rule!=="新闻资讯")) continue;
-        const impliedCat=appToCsvCat[name];
-        if(impliedCat&&impliedCat!=="新闻资讯") continue;
-        catGroups["新闻资讯"].push({name,time:t,rank:999});
-      }
-    }
-
-    // ── Step 6: 计算各分类结果 ──
-    //
-    // 【CSV Application Time 口径】游戏/电商/在线阅读/音乐（有 CSV）：
-    //   合计 = CSV 全量，排除跨类 app；Top5 按 DISPLAY_OVERRIDES > Overall 排序，显示 Overall；
-    //   其他 = CSV合计 − Top5 显示时长之和
-    //
-    // 【Overall 口径】社交：合计 = catGroups["社交"] Overall 之和；
-    //   Top5 按 Social CSV 应用时长排序，显示 Overall
-    //
-    // 【Overall 口径】长视频/泛短视频/直播/社区/新闻资讯/浏览器/搜索/生活服务：
-    //   合计/Top5/其他 均基于 Overall 时长，DISPLAY_OVERRIDES 覆盖显示和排序
-    log("计算各分类合计...");
-    const result={};
-    let grandTotal=0;
-
-    // CSV Application Time 口径的分类（游戏/电商/在线阅读/音乐；长视频改为 Overall 口径）
-    const CSV_APP_TIME_CATS=new Set(["游戏","电商","在线阅读","音乐/音频"]);
-
-    for(const cat of CATEGORIES){
-      const topN=TOP_N_BY_CAT[cat]||5;
-      const csvTimes=catCsvTimes[cat]||{};
-      const hasCsv=Object.keys(csvTimes).length>0;
-      let catTotal,topItems,top5,othersTime;
-
-      if(CSV_APP_TIME_CATS.has(cat)&&hasCsv){
-        // ── CSV Application Time 口径（合计用 CSV 时长，Top5 排序/显示用 Overall）──
-        catTotal=0;
-        for(const[name,t] of Object.entries(csvTimes)){
-          const r=rules[name];
-          if(r&&r!==cat&&CATEGORIES.includes(r)) continue;
-          catTotal+=t;
-        }
-        // Top5：catGroups 里同时在 CSV 里的 app，按 DISPLAY_OVERRIDES > Overall 时长排序，显示 Overall
-        const eligible=catGroups[cat].filter(item=>csvTimes[item.name]!==undefined);
-        const csvRanked=eligible
-          .map(item=>({...item,csvT:csvTimes[item.name]}))
-          .sort((a,b)=>{
-            const ra=DISPLAY_OVERRIDES[a.name]??a.time*1e9;
-            const rb=DISPLAY_OVERRIDES[b.name]??b.time*1e9;
-            return rb-ra;
-          });
-        topItems=csvRanked.slice(0,topN);
-        top5=topItems.map(item=>({
-          name:item.name,
-          displayTime:DISPLAY_OVERRIDES[item.name]!==undefined
-            ?DISPLAY_OVERRIDES[item.name]/1e9
-            :item.time,
-          rank:item.rank
-        }));
-        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+(
-          DISPLAY_OVERRIDES[a.name]!==undefined?DISPLAY_OVERRIDES[a.name]/1e9:a.time
-        ),0));
-
-      } else if(cat==="社交"&&hasCsv){
-        // ── 社交：Overall 口径（成员由 Social CSV 隐式决定，合计用 Overall 时长）──
-        catTotal=catGroups[cat].reduce((s,item)=>s+item.time,0);
-        // 排序：用 Social CSV 应用时长（更准确反映社交使用时长）
-        const rankVal=item=>csvTimes[item.name]??item.time;
-        const sorted=[...catGroups[cat]].sort((a,b)=>rankVal(b)-rankVal(a));
-        topItems=sorted.slice(0,topN);
-        // 显示：Overall 时长（不用 CSV 时长，避免 X 等 app 显示不一致）
-        top5=topItems.map(item=>({
-          name:item.name,
-          displayTime:DISPLAY_OVERRIDES[item.name]!==undefined
-            ?DISPLAY_OVERRIDES[item.name]/1e9
-            :item.time,
-          rank:item.rank
-        }));
-        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.time,0));
-
-      } else {
-        // ── Overall 口径（自定义分类：长视频/泛短视频/直播/社区/浏览器/生活服务，及无 CSV 时的回退）──
-        catTotal=catGroups[cat].reduce((s,item)=>s+item.time,0);
-        const rankVal=item=>{
-          if(DISPLAY_OVERRIDES[item.name]!==undefined) return DISPLAY_OVERRIDES[item.name]/1e9;
-          return item.time;
-        };
-        const sorted=[...catGroups[cat]].sort((a,b)=>rankVal(b)-rankVal(a));
-        topItems=sorted.slice(0,topN);
-        top5=topItems.map(item=>({
-          name:item.name,
-          displayTime:DISPLAY_OVERRIDES[item.name]!==undefined
-            ?DISPLAY_OVERRIDES[item.name]/1e9
-            :item.time,
-          rank:item.rank
-        }));
-        othersTime=Math.max(0,catTotal-topItems.reduce((s,a)=>s+a.time,0));
-      }
-
-      result[cat]={total:catTotal,top5,others:othersTime};
-      grandTotal+=catTotal;
-    }
-
-    const kwaiItem=overall.find(r=>r.name==="Kwai");
-    const kwaiRank=kwaiItem?kwaiItem.rank:"—";
-    log("完成，月总时长："+grandTotal.toFixed(1)+" 十亿分钟","ok");
-    processedData={result,unknown,grandTotal,month,kwaiRank};
+    log("完成，月总时长："+out.grandTotal.toFixed(1)+" 十亿分钟","ok");
+    processedData={...out,month};
     renderResults(processedData);
     document.getElementById("results-card").classList.remove("hidden");
-
   } catch(e){
     log("错误："+e.message,"err");
   }
@@ -718,7 +767,7 @@ function renderResults({result,unknown,grandTotal,month,kwaiRank}){
   if(unknown.length===0){
     ul.innerHTML='<div style="font-size:13px;color:var(--text2);padding:8px 0">所有 App 均已分类</div>';
   } else {
-    const opts=["忽略",...CATEGORIES].map(c=>`<option value="${c}">${c}</option>`).join("");
+    const opts=["排除",...CATEGORIES].map(c=>`<option value="${c}">${c}</option>`).join("");
     ul.innerHTML=unknown.slice(0,60).map(item=>`
       <div class="unknown-item">
         <span class="name">${item.name}</span>
@@ -746,7 +795,9 @@ function addRule(){
   const name=document.getElementById("new-app-name").value.trim();
   const cat=document.getElementById("new-app-cat").value;
   if(!name||!cat) return;
-  rules[name]=cat;
+  const cleanCat=normalizeRuleCat(cat);
+  rules[name]=cleanCat;
+  manualRules.rules[name]={cat:cleanCat,tag:0,ext_time:null};
   document.getElementById("new-app-name").value="";
   renderRulesTable();
 }
@@ -756,8 +807,12 @@ function saveUnknownRules(){
   let added=0;
   sels.forEach(sel=>{
     const app=sel.dataset.app;
-    const cat=sel.value;
-    if(cat){rules[app]=cat;added++;}
+    const cat=normalizeRuleCat(sel.value);
+    if(cat){
+      rules[app]=cat;
+      manualRules.rules[app]={cat,tag:0,ext_time:null};
+      added++;
+    }
   });
   if(added>0){
     renderRulesTable();
@@ -767,7 +822,11 @@ function saveUnknownRules(){
 }
 
 function downloadRulesJSON(){
-  const blob=new Blob([JSON.stringify(rules,null,2)],{type:"application/json"});
+  manualRules.rules = Object.fromEntries(Object.entries(rules).map(([name,cat])=>[
+    name,
+    manualRules.rules[name] ? {...manualRules.rules[name],cat:normalizeRuleCat(cat)} : {cat:normalizeRuleCat(cat),tag:0,ext_time:null}
+  ]));
+  const blob=new Blob([JSON.stringify(manualRules,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url;a.download="classification_rules.json";a.click();
