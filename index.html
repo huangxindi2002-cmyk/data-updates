@@ -251,15 +251,18 @@ const DISPLAY_OVERRIDES = {
 
 let rules = {};
 let manualRules = {rules:{},tt_kwai:{},tt_kwai_monthly:{},app_splits:{}};
+let rulesLoaded = false;
 let filesLoaded = {};
 let processedData = null;
 
-const REPO_RULES_URL = (()=>{
+const REMOTE_RULES_URL = "https://raw.githubusercontent.com/huangxindi2002-cmyk/data-updates/main/classification_rules.json";
+const REPO_RULES_URLS = (()=>{
   const parts = location.pathname.replace(/\/+$/,"").split("/");
   if(location.hostname.includes("github.io") && parts.length>=2){
-    return `https://raw.githubusercontent.com/${location.hostname.replace(".github.io","")}/${parts[1]}/main/classification_rules.json`;
+    return [`https://raw.githubusercontent.com/${location.hostname.replace(".github.io","")}/${parts[1]}/main/classification_rules.json`];
   }
-  return "./classification_rules.json";
+  if(location.protocol==="file:") return [REMOTE_RULES_URL];
+  return ["./classification_rules.json", REMOTE_RULES_URL];
 })();
 
 const DEFAULT_RULES = {
@@ -372,16 +375,27 @@ const DEFAULT_RULES = {
 };
 
 async function loadRules(){
+  let lastError = null;
   try{
-    const res = await fetch(REPO_RULES_URL+"?t="+Date.now());
-    if(res.ok){
-      const remote = await res.json();
-      setLoadedRules(remote);
-      setRulesStatus(true,"规则库已加载（"+Object.keys(rules).length+" 条）");
-    } else throw new Error();
+    for(const url of REPO_RULES_URLS){
+      try{
+        const res = await fetch(url+"?t="+Date.now());
+        if(!res.ok) throw new Error("HTTP "+res.status);
+        const remote = await res.json();
+        setLoadedRules(remote);
+        rulesLoaded = true;
+        setRulesStatus(true,"规则库已加载（"+Object.keys(rules).length+" 条）");
+        break;
+      } catch(e){
+        lastError = e;
+      }
+    }
+    if(!rulesLoaded) throw lastError || new Error("rules unavailable");
   } catch(e){
-    setLoadedRules(DEFAULT_RULES);
-    setRulesStatus(false,"使用内置规则库（"+Object.keys(rules).length+" 条）");
+    rules = {};
+    manualRules = {rules:{},tt_kwai:{},tt_kwai_monthly:{},app_splits:{}};
+    rulesLoaded = false;
+    setRulesStatus(false,"规则库加载失败，请刷新页面或使用 GitHub Pages 链接");
   }
   renderRulesTable();
   buildCatSelects();
@@ -704,6 +718,9 @@ async function runPipeline(){
   const month=document.getElementById("month-input").value||"未知月份";
 
   try{
+    if(!rulesLoaded){
+      throw new Error("分类规则库没有加载成功。请刷新页面，或用 GitHub Pages 链接打开后再跑。");
+    }
     log("读取 Overall CSV...");
     const overall=await parseOverall(filesLoaded["overall"]);
     log("读取 "+overall.length+" 条 Overall 记录","ok");
